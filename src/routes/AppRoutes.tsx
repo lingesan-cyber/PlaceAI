@@ -1,0 +1,45 @@
+import React from 'react';
+import { Routes, Route, Navigate } from 'react-router-dom';
+import { Layout } from '../components/Layout';
+import { ProtectedRoute } from '../components/ProtectedRoute';
+import { LoginPage } from '../pages/LoginPage';
+import { OverallDashboard } from '../pages/dashboard/OverallDashboard';
+import { DirectorDashboard } from '../pages/dashboard/DirectorDashboard';
+import { PlacementOfficerDashboard } from '../pages/dashboard/PlacementOfficerDashboard';
+import { TrainingStaffDashboard } from '../pages/dashboard/TrainingStaffDashboard';
+import { BatchSettings } from '../pages/admin/BatchSettings';
+
+export const AppRoutes: React.FC = () => {
+  return (
+    <Routes>
+      {/* Public Access */}
+      <Route path="/login" element={<LoginPage />} />
+
+      {/* Protected Dashboards Nested in Layout */}
+      <Route path="/dashboard" element={<ProtectedRoute><Layout /></ProtectedRoute>}>
+        <Route path="overall" element={<OverallDashboard />} />
+        <Route path="director" element={
+          <ProtectedRoute allowedRoles={['director']}><DirectorDashboard /></ProtectedRoute>
+        } />
+        <Route path="officer" element={
+          <ProtectedRoute allowedRoles={['officer']}><PlacementOfficerDashboard /></ProtectedRoute>
+        } />
+        <Route path="training" element={
+          <ProtectedRoute allowedRoles={['training']}><TrainingStaffDashboard /></ProtectedRoute>
+        } />
+
+        {/* Admin Settings — accessible by overall and director roles */}
+        <Route path="settings" element={
+          <ProtectedRoute allowedRoles={['overall', 'director']}>
+            <BatchSettings />
+          </ProtectedRoute>
+        } />
+
+        <Route index element={<Navigate to="overall" replace />} />
+      </Route>
+
+      {/* Fallback Redirect */}
+      <Route path="*" element={<Navigate to="/login" replace />} />
+    </Routes>
+  );
+};

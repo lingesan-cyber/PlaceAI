@@ -1,0 +1,121 @@
+{
+  "2024": {
+    "stats": {
+      "totalStudents": 750,
+      "placedStudents": 690,
+      "pendingStudents": 60,
+      "companiesVisited": 110,
+      "placementRate": 92.0,
+      "avgPackage": "7.2 LPA",
+      "highestPackage": "38.0 LPA"
+    },
+    "deptRates": { "CSE": 92, "ECE": 85, "IT": 90, "ME": 70, "CE": 65 },
+    "deptPlacements": { "CSE": 220, "ECE": 160, "IT": 110, "ME": 120, "CE": 80 },
+    "funnel": [
+      { "name": "Eligible",     "value": 750, "percentage": 100 },
+      { "name": "Applied",      "value": 710, "percentage": 94.7 },
+      { "name": "Shortlisted",  "value": 430, "percentage": 57.3 },
+      { "name": "Interviewed",  "value": 250, "percentage": 33.3 },
+      { "name": "Placed",       "value": 690, "percentage": 92.0 }
+    ],
+    "companies": [
+      { "id": "1", "name": "Google",       "status": "Completed", "driveDate": "2024-05-15", "selections": 4,   "packageOffer": "28.0 LPA" },
+      { "id": "2", "name": "Microsoft",    "status": "Completed", "driveDate": "2024-05-20", "selections": 3,   "packageOffer": "25.0 LPA" },
+      { "id": "3", "name": "Amazon",       "status": "Completed", "driveDate": "2024-05-28", "selections": 6,   "packageOffer": "22.0 LPA" },
+      { "id": "4", "name": "TCS",          "status": "Completed", "driveDate": "2024-04-12", "selections": 155, "packageOffer": "3.3 LPA" },
+      { "id": "5", "name": "Infosys",      "status": "Completed", "driveDate": "2024-04-19", "selections": 105, "packageOffer": "3.6 LPA" },
+      { "id": "6", "name": "Cognizant",    "status": "Completed", "driveDate": "2024-04-22", "selections": 120, "packageOffer": "4.0 LPA" },
+      { "id": "7", "name": "Deloitte USI", "status": "Completed", "driveDate": "2024-05-05", "selections": 42,  "packageOffer": "5.5 LPA" }
+    ]
+  },
+  "2025": {
+    "stats": {
+      "totalStudents": 800,
+      "placedStudents": 736,
+      "pendingStudents": 64,
+      "companiesVisited": 128,
+      "placementRate": 92.0,
+      "avgPackage": "7.8 LPA",
+      "highestPackage": "41.2 LPA"
+    },
+    "deptRates": { "CSE": 95, "ECE": 88, "IT": 92, "ME": 75, "CE": 70 },
+    "deptPlacements": { "CSE": 240, "ECE": 170, "IT": 115, "ME": 130, "CE": 81 },
+    "funnel": [
+      { "name": "Eligible",     "value": 800, "percentage": 100 },
+      { "name": "Applied",      "value": 760, "percentage": 95.0 },
+      { "name": "Shortlisted",  "value": 480, "percentage": 60.0 },
+      { "name": "Interviewed",  "value": 290, "percentage": 36.3 },
+      { "name": "Placed",       "value": 736, "percentage": 92.0 }
+    ],
+    "companies": [
+      { "id": "1", "name": "Google",       "status": "Completed", "driveDate": "2025-05-12", "selections": 6,   "packageOffer": "30.0 LPA" },
+      { "id": "2", "name": "Microsoft",    "status": "Completed", "driveDate": "2025-05-18", "selections": 4,   "packageOffer": "26.0 LPA" },
+      { "id": "3", "name": "Amazon",       "status": "Completed", "driveDate": "2025-05-24", "selections": 8,   "packageOffer": "24.0 LPA" },
+      { "id": "4", "name": "TCS",          "status": "Completed", "driveDate": "2025-04-10", "selections": 160, "packageOffer": "3.4 LPA" },
+      { "id": "5", "name": "Infosys",      "status": "Completed", "driveDate": "2025-04-17", "selections": 110, "packageOffer": "3.8 LPA" },
+      { "id": "6", "name": "Wipro",        "status": "Completed", "driveDate": "2025-04-20", "selections": 85,  "packageOffer": "3.6 LPA" },
+      { "id": "7", "name": "Apple",        "status": "Completed", "driveDate": "2025-05-30", "selections": 1,   "packageOffer": "38.0 LPA" },
+      { "id": "8", "name": "Deloitte USI", "status": "Completed", "driveDate": "2025-05-02", "selections": 55,  "packageOffer": "5.8 LPA" }
+    ]
+  },
+  "2026": {
+    "stats": {
+      "totalStudents": 840,
+      "placedStudents": 712,
+      "pendingStudents": 128,
+      "companiesVisited": 142,
+      "placementRate": 84.7,
+      "avgPackage": "8.4 LPA",
+      "highestPackage": "44.5 LPA"
+    },
+    "deptRates": { "CSE": 96, "ECE": 90, "IT": 95, "ME": 78, "CE": 72 },
+    "deptPlacements": { "CSE": 250, "ECE": 180, "IT": 120, "ME": 110, "CE": 77 },
+    "funnel": [
+      { "name": "Eligible",     "value": 840, "percentage": 100 },
+      { "name": "Applied",      "value": 780, "percentage": 92.8 },
+      { "name": "Shortlisted",  "value": 520, "percentage": 61.9 },
+      { "name": "Interviewed",  "value": 310, "percentage": 36.9 },
+      { "name": "Placed",       "value": 712, "percentage": 84.7 }
+    ],
+    "companies": [
+      { "id": "1", "name": "Google",       "status": "Completed", "driveDate": "2026-05-10", "selections": 8,   "packageOffer": "32.0 LPA" },
+      { "id": "2", "name": "Microsoft",    "status": "Ongoing",   "driveDate": "2026-06-08", "selections": 5,   "packageOffer": "28.0 LPA" },
+      { "id": "3", "name": "Amazon",       "status": "Visiting",  "driveDate": "2026-06-15", "selections": 0,   "packageOffer": "25.0 LPA" },
+      { "id": "4", "name": "TCS",          "status": "Completed", "driveDate": "2026-04-18", "selections": 145, "packageOffer": "3.6 LPA" },
+      { "id": "5", "name": "Infosys",      "status": "Completed", "driveDate": "2026-04-25", "selections": 98,  "packageOffer": "4.0 LPA" },
+      { "id": "6", "name": "Cognizant",    "status": "Visiting",  "driveDate": "2026-06-22", "selections": 0,   "packageOffer": "4.5 LPA" },
+      { "id": "7", "name": "Tesla India",  "status": "Ongoing",   "driveDate": "2026-06-02", "selections": 2,   "packageOffer": "24.0 LPA" },
+      { "id": "8", "name": "Deloitte USI", "status": "Completed", "driveDate": "2026-05-14", "selections": 45,  "packageOffer": "6.2 LPA" }
+    ]
+  },
+  "2027": {
+    "stats": {
+      "totalStudents": 890,
+      "placedStudents": 801,
+      "pendingStudents": 89,
+      "companiesVisited": 158,
+      "placementRate": 90.0,
+      "avgPackage": "9.2 LPA",
+      "highestPackage": "52.0 LPA"
+    },
+    "deptRates":      { "CSE": 97, "ECE": 92, "IT": 96, "ME": 82, "CE": 75 },
+    "deptPlacements": { "CSE": 265, "ECE": 192, "IT": 130, "ME": 118, "CE": 82 },
+    "funnel": [
+      { "name": "Eligible",     "value": 890, "percentage": 100 },
+      { "name": "Applied",      "value": 848, "percentage": 95.3 },
+      { "name": "Shortlisted",  "value": 562, "percentage": 63.1 },
+      { "name": "Interviewed",  "value": 340, "percentage": 38.2 },
+      { "name": "Placed",       "value": 801, "percentage": 90.0 }
+    ],
+    "companies": [
+      { "id": "1", "name": "Google",       "status": "Completed", "driveDate": "2027-05-08", "selections": 10,  "packageOffer": "35.0 LPA" },
+      { "id": "2", "name": "Microsoft",    "status": "Completed", "driveDate": "2027-05-14", "selections": 7,   "packageOffer": "30.0 LPA" },
+      { "id": "3", "name": "Meta",         "status": "Completed", "driveDate": "2027-05-20", "selections": 4,   "packageOffer": "48.0 LPA" },
+      { "id": "4", "name": "Amazon",       "status": "Completed", "driveDate": "2027-05-26", "selections": 11,  "packageOffer": "26.0 LPA" },
+      { "id": "5", "name": "TCS",          "status": "Completed", "driveDate": "2027-04-15", "selections": 168, "packageOffer": "4.0 LPA" },
+      { "id": "6", "name": "Infosys",      "status": "Completed", "driveDate": "2027-04-22", "selections": 120, "packageOffer": "4.5 LPA" },
+      { "id": "7", "name": "Wipro",        "status": "Completed", "driveDate": "2027-04-28", "selections": 90,  "packageOffer": "4.2 LPA" },
+      { "id": "8", "name": "Deloitte USI", "status": "Completed", "driveDate": "2027-05-03", "selections": 58,  "packageOffer": "7.0 LPA" }
+    ]
+  }
+}
