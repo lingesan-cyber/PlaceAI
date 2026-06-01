@@ -57,6 +57,15 @@ export const Topbar: React.FC = () => {
     staleTime: 5 * 60 * 1000
   });
 
+  const { data: hrList } = useQuery<any[]>({
+    queryKey: ['search', 'hrContacts'],
+    queryFn: async () => {
+      const res = await apiClient.get('/hr-contacts?year=All');
+      return res.data?.data || [];
+    },
+    staleTime: 5 * 60 * 1000
+  });
+
   // Auto-initialize selectedYear to the latest year when years first load
   useEffect(() => {
     if (years.length > 0 && selectedYear === 'All') {
@@ -113,7 +122,7 @@ export const Topbar: React.FC = () => {
       text: `${c.company_name} — ${c.status || 'Status Unknown'}`,
       time: c.drive_date ? new Date(c.drive_date).toLocaleString() : 'TBD'
     }));
-  }, [companiesList]);
+  }, [companiesList, placementsList]);
 
   // Memoized Search Datasets
   const searchStudents = React.useMemo(() => {
@@ -123,7 +132,7 @@ export const Topbar: React.FC = () => {
       name: s.name,
       regNo: s.reg_no,
       dept: s.department,
-      year: String(s.year),
+      year: String(s.batch_year ?? s.batchYear ?? s.year ?? ''),
       company: s.company,
       skills: s.department === 'CSE' || s.department === 'IT' || s.department === 'ADS'
         ? ['React', 'Node', 'Java', 'SQL', 'Python']
@@ -132,27 +141,32 @@ export const Topbar: React.FC = () => {
   }, [placementsList]);
 
   const searchRecruiters = React.useMemo(() => {
-    const list = companiesList || [];
-    return list.map((c: any, index: number) => ({
-      id: c._id || String(index + 1),
-      name: `${c.company_name} Talent Acquisition Head`,
+    const list = hrList || [];
+    return list.map((c: any) => ({
+      id: c._id,
+      name: c.hr_name,
       company: c.company_name,
-      email: `careers@${c.company_name.toLowerCase().replace(/\s+/g, '')}.com`,
-      phone: `+91 9840${String(10000 + index).slice(1)}`
+      email: c.email,
+      phone: c.phone || ''
     }));
-  }, [companiesList]);
+  }, [hrList]);
 
   const searchDrives = React.useMemo(() => {
     const list = companiesList || [];
     return list.map((c: any, index: number) => {
       const driveDate = c.drive_date ? new Date(c.drive_date) : new Date();
+      const batchYears = Array.from(new Set((placementsList || [])
+        .filter((p: any) => String(p.company ?? '').toLowerCase() === String(c.company_name ?? '').toLowerCase())
+        .map((p: any) => String(p.batch_year ?? p.batchYear ?? p.year ?? '').trim())
+        .filter(Boolean)));
       return {
         id: c._id || String(index + 1),
         companyName: c.company_name,
         status: c.status || 'Active',
         date: c.drive_date ? driveDate.toISOString().split('T')[0] : '',
         packageOffer: `${c.package || 0} LPA`,
-        year: String(driveDate.getFullYear())
+        year: String(driveDate.getFullYear()),
+        batchYears
       };
     });
   }, [companiesList]);
@@ -182,7 +196,7 @@ export const Topbar: React.FC = () => {
       
       if (selectedDept) return false;
       if (selectedYearFilter) {
-        const hasDrive = searchDrives.some(d => d.companyName.toLowerCase() === r.company.toLowerCase() && d.year === selectedYearFilter);
+        const hasDrive = searchDrives.some(d => d.companyName.toLowerCase() === r.company.toLowerCase() && d.batchYears.includes(selectedYearFilter));
         if (!hasDrive) return false;
       }
       if (selectedCompanyFilter && r.company.toLowerCase() !== selectedCompanyFilter.toLowerCase()) return false;
@@ -202,7 +216,7 @@ export const Topbar: React.FC = () => {
         const matchesDept = list.some((p: any) => p.department === selectedDept && p.company.toLowerCase() === d.companyName.toLowerCase());
         if (!matchesDept) return false;
       }
-      if (selectedYearFilter && d.year !== selectedYearFilter) return false;
+      if (selectedYearFilter && !d.batchYears.includes(selectedYearFilter)) return false;
       if (selectedCompanyFilter && d.companyName.toLowerCase() !== selectedCompanyFilter.toLowerCase()) return false;
       return matchesText;
     });

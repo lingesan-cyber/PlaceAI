@@ -8,6 +8,11 @@ const companySchema = new mongoose.Schema(
       unique: true,
       trim: true
     },
+    role: {
+      type: String,
+      default: '',
+      trim: true
+    },
     package: {
       type: Number,
       default: 0,

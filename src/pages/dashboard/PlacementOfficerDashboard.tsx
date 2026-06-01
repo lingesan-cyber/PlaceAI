@@ -1,10 +1,11 @@
 import React, { useState, useMemo, useEffect, useRef } from 'react';
-import { useCompaniesQuery, useHRQuery, useDrivesQuery, useStudentFilterQuery } from '../../hooks/useOfficerData';
+import { useCompaniesQuery, useHRQuery, useDrivesQuery, usePlacementsQuery, useStudentFilterQuery, useAddHRMutation, useUpdateHRMutation, useDeleteHRMutation } from '../../hooks/useOfficerData';
 import type { Company } from '../../types';
 import { useMetadataQuery } from '../../hooks/useMetadata';
 import { useAuthStore } from '../../store/useAuthStore';
 import { useQueryClient } from '@tanstack/react-query';
 import { apiClient } from '../../lib/apiClient';
+import { StudentManagementPanel } from '../../components/StudentManagementPanel';
 import { 
   Search, 
   Plus, 
@@ -12,8 +13,6 @@ import {
   Trash2, 
   Download, 
   UploadCloud, 
-  ChevronLeft, 
-  ChevronRight, 
   ArrowRight,
   Mail,
   Phone,
@@ -33,9 +32,11 @@ import * as XLSX from 'xlsx';
 
 // Zod schema for company validation
 const companySchema = z.object({
-  name: z.string().min(2, "Company Name must be at least 2 characters"),
-  role: z.string().min(2, "Role must be at least 2 characters"),
-  package: z.string().min(1, "Package is required"),
+  name: z.string().trim().min(1, "Company Name is required"),
+  role: z.string().trim().min(1, "Role is required"),
+  package: z.string().trim().min(1, "Package is required").refine((value) => Number(value) > 0, {
+    message: 'Package must be positive'
+  }),
   cgpa: z.coerce.number().min(0).max(10, "CGPA must be between 0 and 10"),
   arrears: z.coerce.number().min(0, "Arrears cannot be negative"),
   dept: z.string().min(1, "Department code is required"),
@@ -46,9 +47,14 @@ const companySchema = z.object({
 
 export const PlacementOfficerDashboard: React.FC = () => {
   const { selectedYear } = useAuthStore();
-  const { data: initCompanies } = useCompaniesQuery(selectedYear);
-  const { data: initHRs } = useHRQuery();
+  console.log('selectedYear', selectedYear);
+  const { data: initCompanies, refetch: refetchCompanies } = useCompaniesQuery(selectedYear);
+  const { data: initHRs } = useHRQuery(selectedYear);
+  const addHRMutation = useAddHRMutation();
+  const updateHRMutation = useUpdateHRMutation();
+  const deleteHRMutation = useDeleteHRMutation();
   const { data: initDrives } = useDrivesQuery(selectedYear);
+  const { data: initPlacements } = usePlacementsQuery(selectedYear);
   const { data: metadata } = useMetadataQuery();
 
   const departments = useMemo(() => {
@@ -56,16 +62,12 @@ export const PlacementOfficerDashboard: React.FC = () => {
   }, [metadata]);
 
   // Selected Active Tab
-  const [activeTab, setActiveTab] = useState<'companies' | 'hr' | 'eligibility' | 'kanban' | 'import'>('companies');
+  const [activeTab, setActiveTab] = useState<'students' | 'companies' | 'hr' | 'eligibility' | 'kanban' | 'import'>('companies');
 
   // Reactive State derived from Queries
-  const [companies, setCompanies] = useState<Company[]>([]);
   const [hrs, setHRs] = useState<any[]>([]);
   const [drives, setDrives] = useState<any[]>([]);
-
-  useEffect(() => {
-    if (initCompanies) setCompanies(initCompanies);
-  }, [initCompanies]);
+  const [kanbanStudents, setKanbanStudents] = useState<any[]>([]);
 
   useEffect(() => {
     if (initHRs) setHRs(initHRs);
@@ -75,9 +77,16 @@ export const PlacementOfficerDashboard: React.FC = () => {
     if (initDrives) setDrives(initDrives);
   }, [initDrives]);
 
+  useEffect(() => {
+    if (initPlacements) {
+      setKanbanStudents(initPlacements);
+    }
+  }, [initPlacements]);
+
   // Form toggles and states
   const [showAddCompany, setShowAddCompany] = useState(false);
   const [editingCompany, setEditingCompany] = useState<Company | null>(null);
+  const [deleteTargetCompany, setDeleteTargetCompany] = useState<Company | null>(null);
   const [formErrors, setFormErrors] = useState<any>({});
   
   // Form values (Add/Edit Company)
@@ -146,7 +155,7 @@ export const PlacementOfficerDashboard: React.FC = () => {
               <Edit2 className="h-4 w-4" />
             </button>
             <button
-              onClick={() => handleDeleteCompany(comp.id)}
+              onClick={() => handleDeleteCompany(comp)}
               className="p-1 hover:bg-red-50 rounded text-slate-600 hover:text-red-600 transition-colors"
               title="Delete"
             >
@@ -156,10 +165,10 @@ export const PlacementOfficerDashboard: React.FC = () => {
         );
       }
     }
-  ], [companies]);
+  ], []);
 
   const table = useReactTable({
-    data: companies,
+    data: initCompanies || [],
     columns,
     getCoreRowModel: getCoreRowModel(),
     getPaginationRowModel: getPaginationRowModel(),
@@ -171,7 +180,13 @@ export const PlacementOfficerDashboard: React.FC = () => {
   });
 
   // B) Add Company Form Submit Handler (Zod validated)
-  const handleCompanySubmit = (e: React.FormEvent) => {
+  const mapFrontendStatusToBackend = (status?: string) => {
+    if (status === 'Completed') return 'Completed';
+    if (status === 'Ongoing') return 'Active';
+    return 'Upcoming';
+  };
+
+  const handleCompanySubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     const result = companySchema.safeParse(companyForm);
     if (!result.success) {
@@ -184,40 +199,43 @@ export const PlacementOfficerDashboard: React.FC = () => {
     }
 
     setFormErrors({});
-    if (editingCompany) {
-      // Edit mode
-      setCompanies(companies.map(c => c.id === editingCompany.id ? { 
-        ...c, 
-        name: companyForm.name, 
-        role: companyForm.role, 
-        package: companyForm.package, 
-        driveDate: companyForm.driveDate 
-      } : c));
-      setEditingCompany(null);
-    } else {
-      // Add mode
-      const newComp: Company = {
-        id: String(companies.length + 1),
-        name: companyForm.name,
-        role: companyForm.role,
-        package: companyForm.package,
-        driveDate: companyForm.driveDate,
-        status: 'Visiting'
+    try {
+      const payload = {
+        company_name: companyForm.name.trim(),
+        role: companyForm.role.trim(),
+        package: Number(companyForm.package),
+        drive_date: companyForm.driveDate,
+        status: editingCompany ? mapFrontendStatusToBackend(editingCompany.status) : 'Upcoming'
       };
-      setCompanies([newComp, ...companies]);
+
+      if (editingCompany) {
+        await apiClient.put(`/companies/${editingCompany.id}`, payload);
+      } else {
+        await apiClient.post('/companies', payload);
+      }
+
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ['officer', 'companies', selectedYear], exact: true }),
+        queryClient.invalidateQueries({ queryKey: ['search', 'companies'] }),
+      ]);
+
+      await refetchCompanies();
+
+      setEditingCompany(null);
+      setCompanyForm({ name: '', role: '', package: '', cgpa: '6.0', arrears: '0', dept: departments[0] || 'CSE', skills: '', driveDate: '', location: '' });
+      setShowAddCompany(false);
+    } catch (error: any) {
+      const message = error?.response?.data?.message || error?.message || 'Failed to save company';
+      setFormErrors({ submit: message });
     }
-    
-    // Clear form
-    setCompanyForm({ name: '', role: '', package: '', cgpa: '6.0', arrears: '0', dept: departments[0] || 'CSE', skills: '', driveDate: '', location: '' });
-    setShowAddCompany(false);
   };
 
   const handleEditClick = (comp: Company) => {
     setEditingCompany(comp);
     setCompanyForm({
       name: comp.name,
-      role: comp.role,
-      package: comp.package.replace(' LPA', ''),
+      role: comp.role || '',
+      package: (comp.package || comp.packageOffer || '').replace(' LPA', ''),
       cgpa: '6.0',
       arrears: '0',
       dept: (comp as any).dept || departments[0] || 'CSE',
@@ -228,8 +246,28 @@ export const PlacementOfficerDashboard: React.FC = () => {
     setShowAddCompany(true);
   };
 
-  const handleDeleteCompany = (id: string) => {
-    setCompanies(companies.filter(c => c.id !== id));
+  const handleDeleteCompany = (company: Company) => {
+    setDeleteTargetCompany(company);
+  };
+
+  const confirmDeleteCompany = async () => {
+    if (!deleteTargetCompany) return;
+
+    try {
+      await apiClient.delete(`/companies/${deleteTargetCompany.id}`);
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ['officer', 'companies', selectedYear], exact: true }),
+        queryClient.invalidateQueries({ queryKey: ['search', 'companies'] }),
+      ]);
+
+      await refetchCompanies();
+
+      setDeleteTargetCompany(null);
+    } catch (error: any) {
+      const message = error?.response?.data?.message || error?.message || 'Failed to delete company';
+      setFormErrors({ submit: message });
+      setDeleteTargetCompany(null);
+    }
   };
 
   // C) HR Management Panel States
@@ -246,31 +284,63 @@ export const PlacementOfficerDashboard: React.FC = () => {
     );
   }, [hrs, hrSearch]);
 
-  const handleAddHR = (e: React.FormEvent) => {
+  const handleAddHR = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!hrForm.name || !hrForm.email || !hrForm.company) return;
-    const newHR = {
-      id: String(hrs.length + 1),
-      ...hrForm,
-      notes: []
-    };
-    setHRs([...hrs, newHR]);
-    setHrForm({ name: '', email: '', phone: '', company: '' });
-    setShowAddHR(false);
+
+    let batchYear = Number(selectedYear);
+    if (isNaN(batchYear) || selectedYear === 'All') {
+      batchYear = 2024; // Fallback default
+    }
+
+    try {
+      await addHRMutation.mutateAsync({
+        hr_name: hrForm.name.trim(),
+        company_name: hrForm.company.trim(),
+        email: hrForm.email.trim(),
+        phone: hrForm.phone ? hrForm.phone.trim() : '',
+        batch_year: batchYear,
+        designation: 'Talent Acquisition Head',
+        notes: ''
+      });
+      setHrForm({ name: '', email: '', phone: '', company: '' });
+      setShowAddHR(false);
+    } catch (err) {
+      console.error('Failed to add HR contact:', err);
+      alert('Failed to register HR contact in database.');
+    }
   };
 
-  const handleDeleteHR = (id: string) => {
-    setHRs(hrs.filter(h => h.id !== id));
+  const handleDeleteHR = async (id: string) => {
+    try {
+      await deleteHRMutation.mutateAsync(id);
+    } catch (err) {
+      console.error('Failed to delete HR contact:', err);
+      alert('Failed to delete HR contact from database.');
+    }
   };
 
-  const handleAddNote = (hrId: string) => {
+  const handleAddNote = async (hrId: string) => {
     if (!newCommunicationNote) return;
-    setHRs(hrs.map(h => h.id === hrId ? { 
-      ...h, 
-      notes: h.notes ? `${h.notes}\n• ${newCommunicationNote}` : `• ${newCommunicationNote}` 
-    } : h));
-    setNewCommunicationNote('');
-    setSelectedHRForNote(null);
+
+    const contact = hrs.find(h => h.id === hrId);
+    if (!contact) return;
+
+    const formattedNote = contact.notes
+      ? `${contact.notes}\n• ${newCommunicationNote}`
+      : `• ${newCommunicationNote}`;
+
+    try {
+      await updateHRMutation.mutateAsync({
+        id: hrId,
+        notes: formattedNote
+      });
+      setNewCommunicationNote('');
+      setSelectedHRForNote(null);
+    } catch (err) {
+      console.error('Failed to append log note:', err);
+      alert('Failed to append note to the contact logs.');
+    }
   };
 
   // F) Eligibility Filter System States
@@ -290,6 +360,7 @@ export const PlacementOfficerDashboard: React.FC = () => {
   }, [filterSkills]);
 
   const { data: filterResult } = useStudentFilterQuery(
+    selectedYear,
     filterCGPA,
     filterArrears,
     filterDepts,
@@ -314,16 +385,6 @@ export const PlacementOfficerDashboard: React.FC = () => {
 
   // G) Student Selection Kanban States
   const queryClient = useQueryClient();
-  const [kanbanStudents, setKanbanStudents] = useState<any[]>([
-    { id: 's1', name: 'Aditya Raj', regNo: '22CS001', stage: 'Applied', company: 'Google' },
-    { id: 's2', name: 'Meera Nair', regNo: '22CS002', stage: 'Shortlisted', company: 'Google' },
-    { id: 's3', name: 'Rohan Sharma', regNo: '22IT012', stage: 'Interviewed', company: 'Microsoft' },
-    { id: 's4', name: 'Sneha Patel', regNo: '22EC005', stage: 'Selected', company: 'Microsoft' },
-    { id: 's5', name: 'Vikram Singh', regNo: '22ME022', stage: 'Rejected', company: 'Tesla India' },
-    { id: 's6', name: 'Divya Iyer', regNo: '22CS015', stage: 'Interviewed', company: 'Google' },
-    { id: 's7', name: 'Karthik Rao', regNo: '22IT008', stage: 'Applied', company: 'Amazon' },
-  ]);
-
   const handleMoveStage = (id: string, nextStage: string) => {
     setKanbanStudents(kanbanStudents.map(s => s.id === id ? { ...s, stage: nextStage } : s));
   };
@@ -661,7 +722,7 @@ export const PlacementOfficerDashboard: React.FC = () => {
 
       {/* Tab Navigation Controls */}
       <div className="flex flex-wrap gap-2 border-b border-slate-200 pb-px">
-        {(['companies', 'hr', 'eligibility', 'kanban', 'import'] as const).map(tab => (
+        {(['students', 'companies', 'hr', 'eligibility', 'kanban', 'import'] as const).map(tab => (
           <button
             key={tab}
             onClick={() => setActiveTab(tab)}
@@ -671,12 +732,14 @@ export const PlacementOfficerDashboard: React.FC = () => {
                 : 'border-transparent text-slate-500 hover:text-slate-800'
             }`}
           >
-            {tab === 'companies' ? 'Recruiters & Calendar' : tab === 'hr' ? 'HR Directory' : tab === 'eligibility' ? 'Student Eligibility' : tab === 'kanban' ? 'Selection Tracker' : 'Spreadsheet Importer'}
+            {tab === 'students' ? 'Students' : tab === 'companies' ? 'Recruiters & Calendar' : tab === 'hr' ? 'HR Directory' : tab === 'eligibility' ? 'Student Eligibility' : tab === 'kanban' ? 'Selection Tracker' : 'Spreadsheet Importer'}
           </button>
         ))}
       </div>
 
       {/* Dynamic Tab Panel Renderings */}
+      {activeTab === 'students' && <StudentManagementPanel selectedYear={selectedYear} />}
+
       {activeTab === 'companies' && (
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           
@@ -880,12 +943,18 @@ export const PlacementOfficerDashboard: React.FC = () => {
                     </div>
                   </div>
 
+                  {formErrors.submit && (
+                    <p className="text-[10px] font-semibold text-rose-600 bg-rose-50 border border-rose-100 rounded-lg px-3 py-2">
+                      {formErrors.submit}
+                    </p>
+                  )}
+
                   {/* PDF Upload Field */}
                   <div>
                     <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1">Job Description (PDF upload)</label>
                     <div className="border border-dashed border-slate-200 rounded-xl p-3 flex items-center justify-between bg-slate-50/50 hover:bg-slate-50 transition-colors">
                       <span className="text-[10px] text-slate-400 font-medium">Drag or select JD PDF brochure file...</span>
-                      <span className="text-[9px] bg-slate-200 hover:bg-slate-350 px-2 py-1 rounded font-bold cursor-pointer transition-all">Upload MOCK JD</span>
+                      <span className="text-[9px] bg-slate-200 hover:bg-slate-350 px-2 py-1 rounded font-bold cursor-pointer transition-all">Upload JD</span>
                     </div>
                   </div>
 
@@ -907,88 +976,91 @@ export const PlacementOfficerDashboard: React.FC = () => {
                 </form>
               </div>
             )}
+
+            {deleteTargetCompany && (
+              <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/50 px-4">
+                <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-2xl border border-slate-200">
+                  <h3 className="text-sm font-extrabold text-slate-800">Delete Company</h3>
+                  <p className="mt-2 text-xs text-slate-500">
+                    Delete <span className="font-bold text-slate-700">{deleteTargetCompany.name}</span>? This cannot be undone.
+                  </p>
+                  <div className="mt-6 flex justify-end gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setDeleteTargetCompany(null)}
+                      className="px-4 py-2 border border-slate-200 hover:bg-slate-50 rounded-lg text-xs font-bold transition-all cursor-pointer"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      type="button"
+                      onClick={confirmDeleteCompany}
+                      className="px-4 py-2 bg-rose-600 hover:bg-rose-700 text-white rounded-lg text-xs font-bold transition-all cursor-pointer shadow-md shadow-rose-500/10"
+                    >
+                      Delete
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
 
-          {/* Right Column: Calendar & Follow-Ups */}
+          {/* Right Column: Drive Records */}
           <div className="space-y-6">
-            
-            {/* D) Drive Calendar Grid - June 2026 Monthly View */}
             <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm space-y-4">
               <div className="flex items-center justify-between border-b border-slate-100 pb-3">
                 <div>
                   <h3 className="text-sm font-extrabold text-slate-800">Drive Calendar</h3>
-                  <p className="text-slate-400 text-[10px]">June 2026 scheduled recruiter drives.</p>
-                </div>
-                <div className="flex items-center gap-1">
-                  <button className="p-1 hover:bg-slate-100 rounded text-slate-400 hover:text-slate-600"><ChevronLeft className="h-4 w-4" /></button>
-                  <span className="text-xs font-bold text-slate-700 px-1">June 2026</span>
-                  <button className="p-1 hover:bg-slate-100 rounded text-slate-400 hover:text-slate-600"><ChevronRight className="h-4 w-4" /></button>
+                  <p className="text-slate-400 text-[10px]">Live recruiter drives for the selected batch year.</p>
                 </div>
               </div>
 
-              {/* Calendar Grid */}
-              <div className="grid grid-cols-7 gap-1 text-center">
-                {['S', 'M', 'T', 'W', 'T', 'F', 'S'].map((day, i) => (
-                  <span key={i} className="text-[10px] font-bold text-slate-400 uppercase py-1">{day}</span>
-                ))}
-                {Array.from({ length: 35 }).map((_, idx) => {
-                  const dayNum = idx - 0; // Starts June 2026 on a Monday (June 1)
-                  const isValidDay = dayNum >= 1 && dayNum <= 30;
-                  const dateStr = isValidDay ? `2026-06-${dayNum < 10 ? '0' + dayNum : dayNum}` : null;
-                  const dayDrives = drives.filter(d => d.date === dateStr);
-
-                  // Highlight colors
-                  let dayBg = 'hover:bg-slate-50';
-                  if (isValidDay && dayDrives.length > 0) {
-                    const firstType = dayDrives[0].type;
-                    if (firstType === 'drive') dayBg = 'bg-blue-50 text-blue-600 font-bold border border-blue-200';
-                    else if (firstType === 'interview') dayBg = 'bg-violet-50 text-violet-600 font-bold border border-violet-200';
-                    else dayBg = 'bg-amber-50 text-amber-600 font-bold border border-amber-200';
-                  }
-
-                  return (
-                    <div
-                      key={idx}
-                      className={`h-9 flex flex-col items-center justify-center rounded-lg text-xs transition-all relative ${dayBg} ${
-                        !isValidDay ? 'opacity-20 pointer-events-none' : 'cursor-pointer'
-                      }`}
-                      title={dayDrives.map(d => d.title).join('\n')}
-                    >
-                      <span>{isValidDay ? dayNum : ''}</span>
-                      {isValidDay && dayDrives.length > 0 && (
-                        <span className="absolute bottom-1 h-1 w-1 rounded-full bg-current"></span>
-                      )}
+              {drives.length > 0 ? (
+                <div className="space-y-3">
+                  {drives.slice(0, 6).map((drive) => (
+                    <div key={drive.id} className="flex flex-col p-3 rounded-xl border border-slate-150 bg-slate-50/50 hover:bg-slate-50 transition-colors">
+                      <div className="flex items-center justify-between gap-3">
+                        <span className="font-bold text-slate-800 text-xs truncate">{drive.company}</span>
+                        <span className="px-2 py-0.5 rounded text-[9px] font-bold uppercase tracking-wider bg-blue-50 text-blue-600">{drive.status}</span>
+                      </div>
+                      <p className="text-[10px] text-slate-500 mt-1">Drive date: {drive.date || 'TBD'}</p>
+                      <span className="text-[9px] text-slate-400 mt-2 block font-medium">{drive.title}</span>
                     </div>
-                  );
-                })}
-              </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="rounded-xl border border-dashed border-slate-200 bg-slate-50 p-4 text-xs text-slate-500">
+                  No drive records found for the selected batch year.
+                </div>
+              )}
             </div>
 
-            {/* E) Follow-Up Tracker */}
             <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm space-y-4">
               <div className="border-b border-slate-100 pb-3">
-                <h3 className="text-sm font-extrabold text-slate-800">Pending Follow-Ups</h3>
-                <p className="text-slate-400 text-[10px]">Follow up deadlines logged for campus drives.</p>
+                <h3 className="text-sm font-extrabold text-slate-800">Drive Follow-Ups</h3>
+                <p className="text-slate-400 text-[10px]">Live drive reminders derived from the selected batch's recruiter list.</p>
               </div>
 
-              <div className="space-y-3">
-                {[
-                  { company: "Amazon", date: "June 10, 2026", task: "Collect eligible candidates sheet", status: "Overdue", color: "text-rose-600 bg-rose-50" },
-                  { company: "Google", date: "June 14, 2026", task: "Coordinate interview panel lunch", status: "Pending", color: "text-amber-600 bg-amber-50" },
-                  { company: "Deloitte", date: "June 18, 2026", task: "HR feedback verification check", status: "Scheduled", color: "text-blue-600 bg-blue-50" },
-                ].map((item, idx) => (
-                  <div key={idx} className="flex flex-col p-3 rounded-xl border border-slate-150 bg-slate-50/50 hover:bg-slate-50 transition-colors">
-                    <div className="flex items-center justify-between">
-                      <span className="font-bold text-slate-800 text-xs">{item.company}</span>
-                      <span className={`px-2 py-0.5 rounded text-[9px] font-bold uppercase tracking-wider ${item.color}`}>
-                        {item.status}
-                      </span>
+              {drives.length > 0 ? (
+                <div className="space-y-3">
+                  {drives.slice(0, 3).map((drive, index) => (
+                    <div key={drive.id} className="flex flex-col p-3 rounded-xl border border-slate-150 bg-slate-50/50 hover:bg-slate-50 transition-colors">
+                      <div className="flex items-center justify-between">
+                        <span className="font-bold text-slate-800 text-xs">{drive.company}</span>
+                        <span className={`px-2 py-0.5 rounded text-[9px] font-bold uppercase tracking-wider ${index === 0 ? 'text-rose-600 bg-rose-50' : index === 1 ? 'text-amber-600 bg-amber-50' : 'text-blue-600 bg-blue-50'}`}>
+                          {index === 0 ? 'Next' : index === 1 ? 'Soon' : 'Scheduled'}
+                        </span>
+                      </div>
+                      <p className="text-[10px] text-slate-500 mt-1">Drive date: {drive.date || 'TBD'}</p>
+                      <span className="text-[9px] text-slate-400 mt-2 block font-medium">{drive.title}</span>
                     </div>
-                    <p className="text-[10px] text-slate-500 mt-1">{item.task}</p>
-                    <span className="text-[9px] text-slate-400 mt-2 block font-medium">Due: {item.date}</span>
-                  </div>
-                ))}
-              </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="rounded-xl border border-dashed border-slate-200 bg-slate-50 p-4 text-xs text-slate-500">
+                  No follow-up items available for the selected batch year.
+                </div>
+              )}
             </div>
           </div>
         </div>
@@ -1255,11 +1327,11 @@ export const PlacementOfficerDashboard: React.FC = () => {
               <div>
                 <h3 className="text-sm font-extrabold text-slate-800">Matched Candidates</h3>
                 <p className="text-slate-400 text-[10px]">
-                  Found <span className="font-extrabold text-blue-600">{filterResult?.count || 0}</span> students matching filter criteria.
+                  Found <span className="font-extrabold text-blue-600">{filterResult?.students?.length || 0}</span> students matching filter criteria.
                 </p>
               </div>
 
-              {filterResult && filterResult.count > 0 && (
+              {filterResult && (filterResult.students?.length || 0) > 0 && (
                 <button
                   onClick={downloadEligibleStudentsExcel}
                   className="flex items-center gap-1.5 bg-gradient-to-r from-blue-600 to-indigo-600 text-white text-xs font-bold px-3 py-1.5 rounded-lg hover:shadow-md cursor-pointer transition-all"
@@ -1406,24 +1478,7 @@ export const PlacementOfficerDashboard: React.FC = () => {
                 Browse Files
               </button>
               
-              <button
-                type="button"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  const sampleImportData = [
-                    { regNo: '22CS099', name: 'Ravi Kumar', dept: 'CSE', cgpa: 8.2, arrears: 0, skills: ['Java', 'Spring Boot'], skillsString: 'Java, Spring Boot', validation: { regNo: false, name: false, dept: false, cgpa: false, arrears: false }, hasError: false, isDuplicate: false },
-                    { regNo: '22CS001', name: 'Aditya Raj', dept: 'CSE', cgpa: 9.2, arrears: 0, skills: ['React', 'Node', 'Python'], skillsString: 'React, Node, Python', validation: { regNo: false, name: false, dept: false, cgpa: false, arrears: false }, hasError: false, isDuplicate: true },
-                    { regNo: '22EC088', name: 'Shreya Roy', dept: 'ECE', cgpa: 11.5, arrears: 0, skills: ['Python', 'Embedded'], skillsString: 'Python, Embedded', validation: { regNo: false, name: false, dept: false, cgpa: true, arrears: false }, hasError: true, isDuplicate: false },
-                    { regNo: '22EC018', name: 'Nisha Gupta', dept: 'ECE', cgpa: 7.5, arrears: -1, skills: ['Python', 'VHDL'], skillsString: 'Python, VHDL', validation: { regNo: false, name: false, dept: false, cgpa: false, arrears: true }, hasError: true, isDuplicate: false },
-                  ];
-                  setImportedRows(sampleImportData);
-                  setUploadedFilename('mock_database_template.xlsx');
-                  setImportReport(null);
-                }}
-                className="text-[10px] font-bold text-slate-500 hover:text-slate-800 bg-slate-100 hover:bg-slate-200 px-3 py-2 rounded-lg transition-all"
-              >
-                Load Dummy Data
-              </button>
+                  <p className="text-[10px] text-slate-400">Use a real spreadsheet export to preview imported records.</p>
             </div>
           </div>
 

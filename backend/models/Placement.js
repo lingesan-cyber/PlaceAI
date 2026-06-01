@@ -22,6 +22,13 @@ const placementSchema = new mongoose.Schema(
       required: [true, 'Company name is required'],
       trim: true
     },
+    batch_year: {
+      type: Number,
+      default: function () {
+        return this.year;
+      },
+      min: [2000, 'Batch year must be a valid academic year']
+    },
     year: {
       type: Number,
       required: [true, 'Placement year is required'],
@@ -55,12 +62,13 @@ const placementSchema = new mongoose.Schema(
 
 // Indexes for faster lookups
 placementSchema.index({ reg_no: 1 });
+placementSchema.index({ batch_year: 1 });
 placementSchema.index({ year: 1 });
 placementSchema.index({ department: 1 });
 placementSchema.index({ company: 1 });
 
 // Compound unique index to prevent duplicate records
-placementSchema.index({ reg_no: 1, year: 1, company: 1 }, { unique: true });
+placementSchema.index({ reg_no: 1, batch_year: 1, company: 1 }, { unique: true });
 
 const Placement = mongoose.model('Placement', placementSchema);
 

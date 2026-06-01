@@ -32,9 +32,11 @@ export const useTrainingStudentsQuery = (year: string) => {
   return useQuery<TrainingStudent[]>({
     queryKey: ['training', 'students', year],
     queryFn: async () => {
-      const yearParam = year !== 'All' ? `?year=${year}` : '';
+      const yearParam = year !== 'All' ? `&batch_year=${year}` : '';
       const response = await apiClient.get(`/placements?limit=150${yearParam}`);
       const placements = response.data?.data?.placements || [];
+
+      // debug logs removed: rely on React Query devtools if needed
 
       return placements.map((p: any, index: number) => {
         // Use real fields from placement records when present.
@@ -86,9 +88,11 @@ export const useTrainingAnalysisQuery = (year: string) => {
   return useQuery<{ radarData: any[] }>({
     queryKey: ['training', 'analysis', year],
     queryFn: async () => {
-      const yearParam = year !== 'All' ? `?year=${year}` : '';
+      const yearParam = year !== 'All' ? `?batch_year=${year}` : '';
       const response = await apiClient.get(`/analytics/departments${yearParam}`);
       const depts = response.data?.data || [];
+
+      // debug logs removed: rely on React Query devtools if needed
 
       const subjects = ['Aptitude', 'Coding', 'Communication', 'Mock Interview', 'Attendance'];
 

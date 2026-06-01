@@ -3,7 +3,9 @@ const router = express.Router();
 const {
   getCompanies,
   getCompanyById,
-  createCompany
+  createCompany,
+  updateCompany,
+  deleteCompany
 } = require('../controllers/companyController');
 
 router.route('/')
@@ -11,6 +13,8 @@ router.route('/')
   .post(createCompany);
 
 router.route('/:id')
-  .get(getCompanyById);
+  .get(getCompanyById)
+  .put(updateCompany)
+  .delete(deleteCompany);
 
 module.exports = router;

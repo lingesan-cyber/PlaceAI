@@ -1,6 +1,8 @@
 const Placement = require('../models/Placement');
 const { validatePlacementRecord } = require('../utils/validator');
 
+const getEffectiveBatchYear = (record) => Number(record?.batch_year ?? record?.year);
+
 /**
  * @desc    Get all placements (with pagination and optional filters)
  * @route   GET /api/placements
@@ -13,8 +15,13 @@ const getPlacements = async (req, res, next) => {
     const skip = (page - 1) * limit;
 
     const filter = {};
-    if (req.query.year) {
-      filter.year = Number(req.query.year);
+    const batchYear = req.query.batch_year ?? req.query.year;
+    if (batchYear) {
+      const numericYear = Number(batchYear);
+      filter.$or = [
+        { batch_year: numericYear },
+        { year: numericYear }
+      ];
     }
     if (req.query.department) {
       filter.department = req.query.department.trim().toUpperCase();
@@ -61,7 +68,9 @@ const getPlacementsByYear = async (req, res, next) => {
       throw new Error('Invalid year parameter');
     }
 
-    const placements = await Placement.find({ year }).sort({ sno: 1 });
+    const placements = await Placement.find({
+      $or: [{ batch_year: year }, { year }]
+    }).sort({ sno: 1 });
 
     res.status(200).json({
       success: true,
@@ -145,7 +154,7 @@ const createPlacement = async (req, res, next) => {
     // Check compound constraint duplicate first
     const existing = await Placement.findOne({
       reg_no: record.reg_no,
-      year: record.year,
+      $or: [{ batch_year: Number(record.batch_year ?? record.year) }, { year: Number(record.batch_year ?? record.year) }],
       company: record.company
     });
 
@@ -159,7 +168,8 @@ const createPlacement = async (req, res, next) => {
       name: record.name,
       reg_no: record.reg_no,
       company: record.company,
-      year: Number(record.year),
+      year: Number(record.batch_year ?? record.year),
+      batch_year: Number(record.batch_year ?? record.year),
       department: record.department,
       package: Number(record.package) || 0,
       placement_status: record.placement_status || 'Placed'

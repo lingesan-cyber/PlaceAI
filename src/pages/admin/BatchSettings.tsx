@@ -59,14 +59,14 @@ export const BatchSettings: React.FC = () => {
     setIsAdding(true);
     // Simulate API call delay
     await new Promise((r) => setTimeout(r, 600));
-    addYear(trimmed);
+    await addYear(trimmed);
     setSelectedYear(trimmed); // auto-switch to the new batch
     setInput('');
     setSuccess(`${trimmed} batch added successfully! The dropdown, charts, and stat cards will now include ${trimmed}.`);
     setIsAdding(false);
     
-    // Invalidate queries to refresh metadata
-    queryClient.invalidateQueries();
+    // Refresh only the shared years cache; year-scoped dashboards refetch via their own query keys.
+    await queryClient.invalidateQueries({ queryKey: ['years'], exact: true });
   };
 
   const handleArchiveClick = (year: string) => {
@@ -92,8 +92,8 @@ export const BatchSettings: React.FC = () => {
       setCompareYears(compareYears.filter((y) => y !== year));
     }
 
-    // Invalidate React Query cache to force refetch of all dashboards and metadata
-    queryClient.invalidateQueries();
+    // Refresh only the shared years cache; current dashboards will react to the store update.
+    await queryClient.invalidateQueries({ queryKey: ['years'], exact: true });
 
     setArchivingYear(null);
     setSuccess(`${year} batch archived successfully. Historical records remain fully available for future restoration.`);
@@ -105,8 +105,8 @@ export const BatchSettings: React.FC = () => {
 
     await restoreYear(year);
 
-    // Invalidate React Query cache to force refetch
-    queryClient.invalidateQueries();
+    // Refresh only the shared years cache; current dashboards will react to the store update.
+    await queryClient.invalidateQueries({ queryKey: ['years'], exact: true });
 
     setSuccess(`${year} batch restored successfully! It has returned to active dropdowns and charts.`);
   };

@@ -8,10 +8,12 @@ const { errorHandler } = require('./middleware/errorHandler');
 
 // Import REST Route Routers
 const placementRoutes = require('./routes/placementRoutes');
+const studentRoutes = require('./routes/studentRoutes');
 const companyRoutes = require('./routes/companyRoutes');
 const yearRoutes = require('./routes/yearRoutes');
 const analyticsRoutes = require('./routes/analyticsRoutes');
 const uploadRoutes = require('./routes/uploadRoutes');
+const hrContactRoutes = require('./routes/hrContactRoutes');
 
 // Load environment configurations
 dotenv.config();
@@ -42,10 +44,12 @@ app.get('/api/health', (req, res) => {
 
 // RESTful Route Mounts
 app.use('/api/placements', placementRoutes);
+app.use('/api/students', studentRoutes);
 app.use('/api/companies', companyRoutes);
 app.use('/api/years', yearRoutes);
 app.use('/api/analytics', analyticsRoutes);
 app.use('/api/upload', uploadRoutes);
+app.use('/api/hr-contacts', hrContactRoutes);
 
 // Unmatched Route Catchment
 app.use(notFound);

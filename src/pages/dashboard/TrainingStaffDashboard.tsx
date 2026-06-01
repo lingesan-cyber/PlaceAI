@@ -38,13 +38,13 @@ interface Student {
   name: string;
   regNo: string;
   dept: string;
-  aptitude: number;
-  coding: number;
-  communication: number;
-  mockInterview: number;
-  attendance: number;
-  avgScore: number;
-  readinessLevel: 'Highly Placeable' | 'Placement Ready' | 'Needs Improvement' | 'High Risk';
+  aptitude?: number;
+  coding?: number;
+  communication?: number;
+  mockInterview?: number;
+  attendance?: number;
+  avgScore?: number;
+  readinessLevel?: 'Highly Placeable' | 'Placement Ready' | 'Needs Improvement' | 'High Risk';
 }
 
 export const TrainingStaffDashboard: React.FC = () => {
@@ -107,12 +107,12 @@ export const TrainingStaffDashboard: React.FC = () => {
   const cohortAverages = useMemo(() => {
     if (students.length === 0) return { aptitude: 0, coding: 0, communication: 0, mockInterview: 0, attendance: 0, avgScore: 0 };
     const sums = students.reduce((acc, curr) => {
-      acc.aptitude += curr.aptitude;
-      acc.coding += curr.coding;
-      acc.communication += curr.communication;
-      acc.mockInterview += curr.mockInterview;
-      acc.attendance += curr.attendance;
-      acc.avgScore += curr.avgScore;
+      acc.aptitude += curr.aptitude ?? 0;
+      acc.coding += curr.coding ?? 0;
+      acc.communication += curr.communication ?? 0;
+      acc.mockInterview += curr.mockInterview ?? 0;
+      acc.attendance += curr.attendance ?? 0;
+      acc.avgScore += curr.avgScore ?? 0;
       return acc;
     }, { aptitude: 0, coding: 0, communication: 0, mockInterview: 0, attendance: 0, avgScore: 0 });
 
@@ -138,8 +138,10 @@ export const TrainingStaffDashboard: React.FC = () => {
   // Filter students
   const filteredStudents = useMemo(() => {
     return students.filter(s => {
-      const matchSearch = s.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
-                          s.regNo.toLowerCase().includes(searchTerm.toLowerCase());
+      const studentName = String(s.name || '');
+      const studentRegNo = String(s.regNo || '');
+      const matchSearch = studentName.toLowerCase().includes(searchTerm.toLowerCase()) || 
+                          studentRegNo.toLowerCase().includes(searchTerm.toLowerCase());
       const matchDept = deptFilter === 'All' || s.dept === deptFilter;
       const matchReadiness = readinessFilter === 'All' || s.readinessLevel === readinessFilter;
       return matchSearch && matchDept && matchReadiness;
@@ -167,7 +169,7 @@ export const TrainingStaffDashboard: React.FC = () => {
       'High Risk': 0,
     };
     students.forEach(s => {
-      if (counts[s.readinessLevel] !== undefined) {
+      if (s.readinessLevel && counts[s.readinessLevel] !== undefined) {
         counts[s.readinessLevel]++;
       }
     });
@@ -181,10 +183,10 @@ export const TrainingStaffDashboard: React.FC = () => {
 
   // Weak Area Detection Panel (Scores < 70)
   const weakStudents = useMemo(() => {
-    const coding = students.filter(s => s.coding < 70).map(s => ({ id: s.id, name: s.name, score: s.coding }));
-    const aptitude = students.filter(s => s.aptitude < 70).map(s => ({ id: s.id, name: s.name, score: s.aptitude }));
-    const communication = students.filter(s => s.communication < 70).map(s => ({ id: s.id, name: s.name, score: s.communication }));
-    const mock = students.filter(s => s.mockInterview < 70).map(s => ({ id: s.id, name: s.name, score: s.mockInterview }));
+    const coding = students.filter(s => (s.coding ?? 0) < 70).map(s => ({ id: s.id, name: s.name, score: s.coding ?? 0 }));
+    const aptitude = students.filter(s => (s.aptitude ?? 0) < 70).map(s => ({ id: s.id, name: s.name, score: s.aptitude ?? 0 }));
+    const communication = students.filter(s => (s.communication ?? 0) < 70).map(s => ({ id: s.id, name: s.name, score: s.communication ?? 0 }));
+    const mock = students.filter(s => (s.mockInterview ?? 0) < 70).map(s => ({ id: s.id, name: s.name, score: s.mockInterview ?? 0 }));
 
     return { coding, aptitude, communication, mock };
   }, [students]);
@@ -194,43 +196,43 @@ export const TrainingStaffDashboard: React.FC = () => {
     if (!selectedStudent) return [];
     const recs = [];
     
-    if (selectedStudent.coding < 70) {
+    if ((selectedStudent.coding ?? 0) < 70) {
       recs.push({
         type: 'coding',
         title: 'Targeted Coding Drill Required',
-        description: `Score is ${selectedStudent.coding}/100. Assign 15 foundational DSA exercises (Arrays, Strings, Recursion) on the practice platform and mandate Saturday mentoring.`,
+        description: `Score is ${selectedStudent.coding ?? 0}/100. Assign 15 foundational DSA exercises (Arrays, Strings, Recursion) on the practice platform and mandate Saturday mentoring.`,
         priority: 'High'
       });
     }
-    if (selectedStudent.aptitude < 70) {
+    if ((selectedStudent.aptitude ?? 0) < 70) {
       recs.push({
         type: 'aptitude',
         title: 'Quantitative & Logical Bootcamps',
-        description: `Score is ${selectedStudent.aptitude}/100. Require daily speed training tests and assign analytical mocks (Profit & Loss, Ratios, Speed Math).`,
+        description: `Score is ${selectedStudent.aptitude ?? 0}/100. Require daily speed training tests and assign analytical mocks (Profit & Loss, Ratios, Speed Math).`,
         priority: 'High'
       });
     }
-    if (selectedStudent.communication < 70) {
+    if ((selectedStudent.communication ?? 0) < 70) {
       recs.push({
         type: 'communication',
         title: 'Soft Skills Training Enrollment',
-        description: `Score is ${selectedStudent.communication}/100. Mandate the 2-week active speaking Bootcamp and add to the verbal assessment registry.`,
+        description: `Score is ${selectedStudent.communication ?? 0}/100. Mandate the 2-week active speaking Bootcamp and add to the verbal assessment registry.`,
         priority: 'Medium'
       });
     }
-    if (selectedStudent.mockInterview < 70) {
+    if ((selectedStudent.mockInterview ?? 0) < 70) {
       recs.push({
         type: 'mock',
         title: 'Resume & Simulated Interview Drills',
-        description: `Mock rating is ${selectedStudent.mockInterview}/100. Schedule a secondary interview slot focusing on core resume project explanations.`,
+        description: `Mock rating is ${selectedStudent.mockInterview ?? 0}/100. Schedule a secondary interview slot focusing on core resume project explanations.`,
         priority: 'High'
       });
     }
-    if (selectedStudent.attendance < 75) {
+    if ((selectedStudent.attendance ?? 0) < 75) {
       recs.push({
         type: 'attendance',
         title: 'Critical Attendance Alert',
-        description: `Attendance is at ${selectedStudent.attendance}%. Send official review request letter and mandate makeup hours for skipped sessions.`,
+        description: `Attendance is at ${selectedStudent.attendance ?? 0}%. Send official review request letter and mandate makeup hours for skipped sessions.`,
         priority: 'Critical'
       });
     }
@@ -238,7 +240,7 @@ export const TrainingStaffDashboard: React.FC = () => {
       recs.push({
         type: 'placement',
         title: 'Elite Student Placement Tracking',
-        description: `Overall rating is excellent (${selectedStudent.avgScore}%). Highlight profile for Tier-1 high-package drives (12+ LPA core companies).`,
+        description: `Overall rating is excellent (${selectedStudent.avgScore ?? 0}%). Highlight profile for Tier-1 high-package drives (12+ LPA core companies).`,
         priority: 'Low'
       });
     }
@@ -310,11 +312,11 @@ export const TrainingStaffDashboard: React.FC = () => {
             {selectedStudent && (
               <div className="mb-4 bg-indigo-50/50 p-2.5 rounded-xl border border-indigo-100/60 flex items-center gap-3">
                 <div className="h-8 w-8 rounded-full bg-indigo-500 text-white flex items-center justify-center text-xs font-bold shadow">
-                  {selectedStudent.name.charAt(0)}
+                  {(selectedStudent.name || '?').charAt(0)}
                 </div>
                 <div className="overflow-hidden">
-                  <h4 className="text-xs font-bold text-slate-800 truncate">{selectedStudent.name}</h4>
-                  <p className="text-[10px] text-slate-400 font-semibold">{selectedStudent.regNo} | {selectedStudent.dept}</p>
+                  <h4 className="text-xs font-bold text-slate-800 truncate">{selectedStudent.name || 'Unknown Student'}</h4>
+                  <p className="text-[10px] text-slate-400 font-semibold">{selectedStudent.regNo || 'N/A'} | {selectedStudent.dept || 'N/A'}</p>
                 </div>
               </div>
             )}
@@ -671,15 +673,15 @@ export const TrainingStaffDashboard: React.FC = () => {
                           student.readinessLevel === 'Placement Ready' ? 'bg-blue-500' :
                           student.readinessLevel === 'Needs Improvement' ? 'bg-amber-500' : 'bg-rose-500'
                         }`}>
-                          {student.name.charAt(0)}
+                            {(student.name || '?').charAt(0)}
                         </div>
                         <div>
-                          <p className="font-bold text-slate-800 text-xs">{student.name}</p>
-                          <span className="text-[9px] text-slate-400 font-semibold uppercase">{student.dept} Branch</span>
+                            <p className="font-bold text-slate-800 text-xs">{student.name || 'Unknown Student'}</p>
+                            <span className="text-[9px] text-slate-400 font-semibold uppercase">{student.dept || 'N/A'} Branch</span>
                         </div>
                       </div>
                     </td>
-                    <td className="px-6 py-3.5 text-slate-500 font-semibold">{student.regNo}</td>
+                      <td className="px-6 py-3.5 text-slate-500 font-semibold">{student.regNo || 'N/A'}</td>
                     
                     {/* Aptitude */}
                     <td className="px-6 py-3.5 text-center font-bold">

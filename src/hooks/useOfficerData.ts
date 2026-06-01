@@ -1,47 +1,176 @@
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { apiClient } from '../lib/apiClient';
+
+const normalizeBatchYear = (record: any): string => {
+  return String(record?.batch_year ?? '').trim();
+};
+
+const normalizePlacementStatus = (value: any): string => {
+  return String(value ?? '').trim().toLowerCase();
+};
+
+const mapPlacementStage = (status: any): string => {
+  const normalized = normalizePlacementStatus(status);
+  if (normalized === 'placed' || normalized === 'selected') return 'Selected';
+  if (normalized === 'shortlisted') return 'Shortlisted';
+  if (normalized === 'interviewed') return 'Interviewed';
+  if (normalized === 'rejected') return 'Rejected';
+  return 'Applied';
+};
+
+const getBatchCompanyNames = (placements: any[], year: string): Set<string> => {
+  if (year === 'All') return new Set<string>();
+  return new Set(
+    placements
+      .filter((placement: any) => normalizeBatchYear(placement) === year)
+      .map((placement: any) => String(placement.company ?? '').trim())
+      .filter(Boolean)
+  );
+};
+
+export const usePlacementsQuery = (year: string) => {
+  return useQuery({
+    queryKey: ['officer', 'placements', year],
+    queryFn: async () => {
+      const response = await apiClient.get('/placements?limit=5000');
+      const payload = response.data?.data;
+      const placements = Array.isArray(payload) ? payload : (payload?.placements || []);
+
+      const filteredPlacements = year === 'All'
+        ? placements
+        : placements.filter((placement: any) => normalizeBatchYear(placement) === String(year));
+
+      // temporary debug logs removed; use React Query DevTools if needed
+
+      return filteredPlacements.map((placement: any, index: number) => ({
+        id: placement._id || String(index + 1),
+        name: placement.name ?? placement.student_name ?? '',
+        regNo: placement.reg_no,
+        dept: placement.department,
+        company: placement.company,
+        role: placement.role || '',
+        package: `${placement.package || 0} LPA`,
+        packageOffer: `${placement.package || 0} LPA`,
+        year: normalizeBatchYear(placement),
+        batchYear: normalizeBatchYear(placement),
+        stage: mapPlacementStage(placement.placement_status),
+        placementStatus: placement.placement_status || 'Placed',
+      }));
+    },
+    staleTime: 5 * 60 * 1000,
+  });
+};
 
 /** Companies registered for drives in the given year. */
 export const useCompaniesQuery = (year: string) => {
   return useQuery({
     queryKey: ['officer', 'companies', year],
     queryFn: async () => {
-      const response = await apiClient.get('/companies');
-      const list = response.data?.data || [];
-      return list
-        .filter((c: any) => {
-          if (year === 'All') return true;
-          const driveYear = new Date(c.drive_date).getFullYear();
-          return String(driveYear) === year;
-        })
-        .map((c: any) => ({
-          id: c._id,
-          name: c.company_name,
-          packageOffer: `${c.package || 0} LPA`,
-          driveDate: c.drive_date ? new Date(c.drive_date).toISOString().split('T')[0] : '',
-          status: c.status || 'Active'
-        }));
+      const [companiesRes, placementsRes] = await Promise.all([
+        apiClient.get('/companies'),
+        apiClient.get('/placements?limit=5000')
+      ]);
+
+      const companies = companiesRes.data?.data || [];
+      const placementsPayload = placementsRes.data?.data;
+      const placements = Array.isArray(placementsPayload) ? placementsPayload : (placementsPayload?.placements || []);
+      const allowedCompanyNames = getBatchCompanyNames(placements, year);
+
+      const filteredCompanies = year === 'All'
+        ? companies
+        : companies.filter((company: any) => allowedCompanyNames.has(String(company.company_name ?? '').trim()));
+
+      // temporary debug logs removed; use React Query DevTools if needed
+
+      return filteredCompanies.map((c: any) => ({
+        id: c._id,
+        name: c.company_name,
+        role: c.role || 'Campus Drive',
+        package: `${c.package || 0} LPA`,
+        packageOffer: `${c.package || 0} LPA`,
+        driveDate: c.drive_date ? new Date(c.drive_date).toISOString().split('T')[0] : '',
+        status: c.status || 'Active'
+      }));
     },
     staleTime: 5 * 60 * 1000,
   });
 };
 
-/** HR contacts directory compiled dynamically from recruiters database logs. */
-export const useHRQuery = () => {
+/** HR contacts directory loaded dynamically from MongoDB. */
+export const useHRQuery = (year: string) => {
   return useQuery({
-    queryKey: ['officer', 'hr'],
+    queryKey: ['officer', 'hr', year],
     queryFn: async () => {
-      const response = await apiClient.get('/companies');
-      const companies = response.data?.data || [];
-      return companies.map((c: any, index: number) => ({
-        id: c._id || String(index + 1),
-        name: `${c.company_name} Talent Acquisition Head`,
+      const response = await apiClient.get(`/hr-contacts?year=${year}`);
+      const payload = response.data?.data || [];
+      return payload.map((c: any) => ({
+        id: c._id,
+        name: c.hr_name,
         company: c.company_name,
-        email: `ta-head@${c.company_name.toLowerCase().replace(/\s+/g, '')}.com`,
-        phone: `+91 9840${String(10000 + index).slice(1)}`
+        email: c.email,
+        phone: c.phone || '',
+        designation: c.designation || 'Talent Acquisition Head',
+        notes: c.notes || '',
+        batchYear: c.batch_year
       }));
     },
     staleTime: 5 * 60 * 1000,
+  });
+};
+
+export const useAddHRMutation = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (newHR: {
+      company_name: string;
+      hr_name: string;
+      email: string;
+      phone?: string;
+      designation?: string;
+      notes?: string;
+      batch_year: number;
+    }) => {
+      const response = await apiClient.post('/hr-contacts', newHR);
+      return response.data?.data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['officer', 'hr'] });
+    }
+  });
+};
+
+export const useUpdateHRMutation = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ id, ...payload }: {
+      id: string;
+      company_name?: string;
+      hr_name?: string;
+      email?: string;
+      phone?: string;
+      designation?: string;
+      notes?: string;
+      batch_year?: number;
+    }) => {
+      const response = await apiClient.put(`/hr-contacts/${id}`, payload);
+      return response.data?.data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['officer', 'hr'] });
+    }
+  });
+};
+
+export const useDeleteHRMutation = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (id: string) => {
+      const response = await apiClient.delete(`/hr-contacts/${id}`);
+      return response.data?.data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['officer', 'hr'] });
+    }
   });
 };
 
@@ -50,14 +179,22 @@ export const useDrivesQuery = (year: string) => {
   return useQuery({
     queryKey: ['officer', 'drives', year],
     queryFn: async () => {
-      const response = await apiClient.get('/companies');
-      const list = response.data?.data || [];
-      return list
-        .filter((c: any) => {
-          if (year === 'All') return true;
-          const driveYear = new Date(c.drive_date).getFullYear();
-          return String(driveYear) === year;
-        })
+      const [companiesRes, placementsRes] = await Promise.all([
+        apiClient.get('/companies'),
+        apiClient.get('/placements?limit=5000')
+      ]);
+
+      const companies = companiesRes.data?.data || [];
+      const placementsPayload = placementsRes.data?.data;
+      const placements = Array.isArray(placementsPayload) ? placementsPayload : (placementsPayload?.placements || []);
+      const allowedCompanyNames = getBatchCompanyNames(placements, year);
+      const filteredCompanies = year === 'All'
+        ? companies
+        : companies.filter((company: any) => allowedCompanyNames.has(String(company.company_name ?? '').trim()));
+
+      // temporary debug logs removed; use React Query DevTools if needed
+
+      return filteredCompanies
         .map((c: any, index: number) => ({
           id: c._id || String(index + 1),
           title: `${c.company_name} Off-Campus Placement Drive`,
@@ -72,6 +209,7 @@ export const useDrivesQuery = (year: string) => {
 
 /** Student candidate search filter matching register codes and dynamic attributes. */
 export const useStudentFilterQuery = (
+  year: string,
   cgpa: number,
   arrears: number,
   depts: string[],
@@ -80,16 +218,18 @@ export const useStudentFilterQuery = (
   const deptsQuery = depts.join(',');
   const skillsQuery = skills.join(',');
   return useQuery({
-    queryKey: ['officer', 'students', 'filter', cgpa, arrears, deptsQuery, skillsQuery],
+    queryKey: ['officer', 'students', 'filter', year, cgpa, arrears, deptsQuery, skillsQuery],
     queryFn: async () => {
-      // 1. Fetch placements list
-      const response = await apiClient.get('/placements?limit=200');
-      const placements = response.data?.data?.placements || [];
+      const response = await apiClient.get('/students?limit=5000');
+      const payload = response.data?.data;
+      const students = Array.isArray(payload) ? payload : (payload?.students || []);
+      const filteredStudents = year === 'All'
+        ? students
+        : students.filter((student: any) => normalizeBatchYear(student) === String(year));
 
-      // 2. Map candidate attributes from real placement records; do not fabricate values.
-      // If backend does not provide a field, map to a sentinel that causes the
-      // client-side filters to exclude the record (so UI only shows records with real data).
-      return placements.map((p: any, index: number) => {
+      // temporary debug logs removed; use React Query DevTools if needed
+
+      const studentsResult = filteredStudents.map((p: any, index: number) => {
         const cgpa = typeof p.cgpa === 'number' ? parseFloat(p.cgpa.toFixed ? p.cgpa.toFixed(2) : String(p.cgpa)) : -1; // -1 indicates missing
         const arrears = typeof p.arrears === 'number' ? p.arrears : Number.POSITIVE_INFINITY; // Infinity indicates missing
         const skills = Array.isArray(p.skills) ? p.skills : [];
@@ -103,7 +243,7 @@ export const useStudentFilterQuery = (
           skills,
           regNo: p.reg_no,
           company: p.company,
-          status: p.placement_status || 'Placed'
+          status: p.placement_status || 'Applied'
         };
       }).filter((s: any) => {
         if (s.cgpa < cgpa) return false;
@@ -112,6 +252,8 @@ export const useStudentFilterQuery = (
         if (skills.length > 0 && !skills.some((sk: string) => s.skills.includes(sk))) return false;
         return true;
       });
+
+      return { students: studentsResult };
     },
     staleTime: 2000,
   });

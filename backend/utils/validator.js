@@ -29,10 +29,10 @@ const validatePlacementRecord = (record) => {
     errors.push('company must be a non-empty string');
   }
 
-  // Validate year
-  const year = Number(record.year);
-  if (!record.year || isNaN(year) || year < 2000) {
-    errors.push('year must be a valid academic year >= 2000');
+  // Validate batch year (supports legacy year field as fallback)
+  const batchYear = Number(record.batch_year ?? record.year);
+  if (!(record.batch_year ?? record.year) || isNaN(batchYear) || batchYear < 2000) {
+    errors.push('batch_year must be a valid academic year >= 2000');
   }
 
   // Validate department
@@ -59,6 +59,49 @@ const validatePlacementRecord = (record) => {
   };
 };
 
+/**
+ * Validates a student record used by the student management module.
+ * @param {Object} record - The student record to validate.
+ * @returns {Object} { isValid: boolean, errors: string[] }
+ */
+const validateStudentRecord = (record) => {
+  const errors = [];
+
+  if (!record.reg_no || typeof record.reg_no !== 'string' || record.reg_no.trim() === '') {
+    errors.push('reg_no is required');
+  }
+
+  if (!record.name || typeof record.name !== 'string' || record.name.trim() === '') {
+    errors.push('name is required');
+  }
+
+  if (!record.department || typeof record.department !== 'string' || record.department.trim() === '') {
+    errors.push('department is required');
+  }
+
+  const cgpa = Number(record.cgpa);
+  if (record.cgpa === undefined || record.cgpa === null || Number.isNaN(cgpa) || cgpa < 0 || cgpa > 10) {
+    errors.push('cgpa must be a number between 0 and 10');
+  }
+
+  const arrears = Number(record.arrears);
+  if (record.arrears === undefined || record.arrears === null || Number.isNaN(arrears) || arrears < 0) {
+    errors.push('arrears cannot be negative');
+  }
+
+  const skills = Array.isArray(record.skills) ? record.skills : String(record.skills || '').split(',');
+  const hasValidSkill = skills.some((skill) => String(skill).trim() !== '');
+  if (!hasValidSkill) {
+    errors.push('skills must contain at least one value');
+  }
+
+  return {
+    isValid: errors.length === 0,
+    errors
+  };
+};
+
 module.exports = {
-  validatePlacementRecord
+  validatePlacementRecord,
+  validateStudentRecord
 };

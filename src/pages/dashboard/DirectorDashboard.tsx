@@ -144,29 +144,15 @@ export const DirectorDashboard: React.FC = () => {
       pkgMap[p.name] = p.avgPkg;
     });
 
-    // Mock highest package for departments
-    const highestPkgMap: Record<string, string> = {
-      'CSE': '44.5 LPA',
-      'IT': '28.0 LPA',
-      'ECE': '24.0 LPA',
-      'ME': '12.0 LPA',
-      'CE': '10.0 LPA'
-    };
-
     const depts = statsData.deptPerformance.map((d: any) => {
-      const code = d.department.includes('(CSE)') ? 'CSE' :
-                   d.department.includes('(IT)') ? 'IT' :
-                   d.department.includes('(ECE)') ? 'ECE' :
-                   d.department.includes('(ME)') ? 'ME' : 'CE';
-                   
       return {
         name: d.department,
-        code,
+        code: d.department,
         percentage: d.percentage,
         placed: d.placed,
         total: d.total,
-        avgPkg: `${pkgMap[code] || 6.0} LPA`,
-        highestPkg: highestPkgMap[code] || '10.0 LPA',
+        avgPkg: `${pkgMap[d.department] || 0} LPA`,
+        highestPkg: d.highestPackage || '0.0 LPA',
         topCompany: d.topCompany
       };
     });

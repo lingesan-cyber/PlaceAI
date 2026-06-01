@@ -1,5 +1,12 @@
 const Placement = require('../models/Placement');
 const Company = require('../models/Company');
+const Student = require('../models/Student');
+
+const buildBatchMatch = (year) => {
+  if (!year) return {};
+  const numericYear = Number(year);
+  return { $or: [{ batch_year: numericYear }, { year: numericYear }] };
+};
 
 /**
  * @desc    Get placement overview metrics
@@ -8,48 +15,33 @@ const Company = require('../models/Company');
  */
 const getOverviewAnalytics = async (req, res, next) => {
   try {
-    const yearQuery = req.query.year ? Number(req.query.year) : null;
+    const batchYear = req.query.batch_year ?? req.query.year;
+    const studentFilter = batchYear ? buildBatchMatch(batchYear) : {};
+    const placementFilter = batchYear ? buildBatchMatch(batchYear) : {};
 
-    const filter = {};
-    if (yearQuery) {
-      filter.year = yearQuery;
-    }
-
-    // Placed students count
+    const totalStudents = await Student.countDocuments(studentFilter);
     const placedStudents = await Placement.countDocuments({
-      ...filter,
+      ...placementFilter,
       placement_status: 'Placed'
     });
 
-    // Total companies registered or visited
-    let totalCompanies;
-    if (yearQuery) {
-      // Find count of unique companies placed in this year
-      const uniqueCompanies = await Placement.distinct('company', filter);
-      totalCompanies = uniqueCompanies.length;
-    } else {
-      totalCompanies = await Company.countDocuments({});
-      if (totalCompanies === 0) {
-        const uniqueCompanies = await Placement.distinct('company');
-        totalCompanies = uniqueCompanies.length;
-      }
-    }
+    const uniqueCompanies = batchYear
+      ? await Placement.distinct('company', placementFilter)
+      : await Placement.distinct('company');
 
-    // Dynamically estimate total cohort size based on standard academic distributions
-    // if no dedicated Student collection exists yet
-    const estimatedTotalStudents = placedStudents > 0 
-      ? Math.ceil(placedStudents / 0.88) 
-      : 0;
+    const totalCompanies = uniqueCompanies.length > 0
+      ? uniqueCompanies.length
+      : await Company.countDocuments({});
 
-    const placementPercentage = estimatedTotalStudents > 0 
-      ? parseFloat(((placedStudents / estimatedTotalStudents) * 100).toFixed(1))
+    const placementPercentage = totalStudents > 0
+      ? parseFloat(((placedStudents / totalStudents) * 100).toFixed(1))
       : 0.0;
 
     res.status(200).json({
       success: true,
       message: 'Overview analytics retrieved successfully',
       data: {
-        totalStudents: estimatedTotalStudents,
+        totalStudents,
         placedStudents,
         placementPercentage,
         totalCompanies
@@ -67,16 +59,24 @@ const getOverviewAnalytics = async (req, res, next) => {
  */
 const getDepartmentAnalytics = async (req, res, next) => {
   try {
-    const yearQuery = req.query.year ? Number(req.query.year) : null;
-
-    const matchStage = {};
-    if (yearQuery) {
-      matchStage.year = yearQuery;
-    }
+    const batchYear = req.query.batch_year ?? req.query.year;
+    const matchStage = batchYear
+      ? {
+          $or: [
+            { batch_year: Number(batchYear) },
+            { year: Number(batchYear) }
+          ]
+        }
+      : {};
 
     const deptStats = await Placement.aggregate([
       {
         $match: matchStage
+      },
+      {
+        $addFields: {
+          effectiveBatchYear: { $ifNull: ['$batch_year', '$year'] }
+        }
       },
       {
         $group: {
@@ -101,8 +101,29 @@ const getDepartmentAnalytics = async (req, res, next) => {
     ]);
 
     // Compute relative rankings & mock eligible student ratio for frontend compatibility
+    const studentCounts = await Student.aggregate([
+      {
+        $match: batchYear
+          ? {
+              $or: [
+                { batch_year: Number(batchYear) },
+                { year: Number(batchYear) }
+              ]
+            }
+          : {}
+      },
+      {
+        $group: {
+          _id: '$department',
+          totalStudents: { $sum: 1 }
+        }
+      }
+    ]);
+
+    const studentCountMap = new Map(studentCounts.map((row) => [row._id, row.totalStudents]));
+
     const rankings = deptStats.map((item, index) => {
-      const estimatedCohort = Math.ceil(item.placedCount / 0.88);
+      const estimatedCohort = studentCountMap.get(item.department) || item.placedCount || 0;
       const placementPercentage = estimatedCohort > 0 
         ? parseFloat(((item.placedCount / estimatedCohort) * 100).toFixed(1))
         : 0.0;
@@ -132,12 +153,15 @@ const getDepartmentAnalytics = async (req, res, next) => {
  */
 const getCompanyAnalytics = async (req, res, next) => {
   try {
-    const yearQuery = req.query.year ? Number(req.query.year) : null;
-
-    const matchStage = {};
-    if (yearQuery) {
-      matchStage.year = yearQuery;
-    }
+    const batchYear = req.query.batch_year ?? req.query.year;
+    const matchStage = batchYear
+      ? {
+          $or: [
+            { batch_year: Number(batchYear) },
+            { year: Number(batchYear) }
+          ]
+        }
+      : {};
 
     const companyStats = await Placement.aggregate([
       {
