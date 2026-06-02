@@ -1,5 +1,5 @@
 const mongoose = require('mongoose');
-const { DEPARTMENTS } = require('../constants/departments');
+
 
 const studentSchema = new mongoose.Schema(
   {
@@ -18,10 +18,12 @@ const studentSchema = new mongoose.Schema(
       type: String,
       required: [true, 'Department is required'],
       uppercase: true,
-      enum: {
-        values: DEPARTMENTS,
-        message: 'Invalid department: {VALUE}. Must be one of: ' + DEPARTMENTS.join(', ')
-      },
+      trim: true
+    },
+    section: {
+      type: String,
+      default: '',
+      uppercase: true,
       trim: true
     },
     cgpa: {
@@ -34,6 +36,11 @@ const studentSchema = new mongoose.Schema(
       type: Number,
       default: 0,
       min: [0, 'Arrears cannot be negative']
+    },
+    batch_year: {
+      type: Number,
+      required: [true, 'Batch year is required'],
+      min: [2000, 'Batch year must be a valid academic year >= 2000']
     },
     skills: {
       type: [String],

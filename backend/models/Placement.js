@@ -1,5 +1,4 @@
 const mongoose = require('mongoose');
-const { DEPARTMENTS } = require('../constants/departments');
 
 const placementSchema = new mongoose.Schema(
   {
@@ -38,10 +37,6 @@ const placementSchema = new mongoose.Schema(
       type: String,
       required: [true, 'Department is required'],
       uppercase: true,
-      enum: {
-        values: DEPARTMENTS,
-        message: 'Invalid department: {VALUE}. Must be one of: ' + DEPARTMENTS.join(', ')
-      },
       trim: true
     },
     package: {

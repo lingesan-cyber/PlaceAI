@@ -22,10 +22,13 @@ const buildStudentPayload = (body) => {
     ? body.placement_status.trim()
     : 'Applied';
 
+  const section = typeof body.section === 'string' ? body.section.trim().toUpperCase() : '';
+
   const payload = {
     reg_no,
     name,
     department,
+    section,
     cgpa,
     arrears: Number.isFinite(arrears) ? arrears : 0,
     skills: normalizeSkills(body.skills),
@@ -51,6 +54,14 @@ const buildStudentPayload = (body) => {
 
 const buildStudentFilter = (query) => {
   const filter = {};
+
+  const batchYear = query.batch_year ?? query.year;
+  if (batchYear && String(batchYear).trim().toLowerCase() !== 'all') {
+    const numericYear = Number(batchYear);
+    if (!Number.isNaN(numericYear)) {
+      filter.batch_year = numericYear;
+    }
+  }
 
   if (query.department) {
     filter.department = String(query.department).trim().toUpperCase();
@@ -90,7 +101,7 @@ const buildStudentFilter = (query) => {
 const getStudents = async (req, res, next) => {
   try {
     const page = parseInt(req.query.page, 10) || 1;
-    const limit = Math.min(parseInt(req.query.limit, 10) || 100, 500);
+    const limit = Math.min(parseInt(req.query.limit, 10) || 100, 10000);
     const skip = (page - 1) * limit;
     const filter = buildStudentFilter(req.query);
 
@@ -120,10 +131,18 @@ const getStudents = async (req, res, next) => {
 
 const getStudentById = async (req, res, next) => {
   try {
-    const student = await Student.findById(req.params.id);
+    const mongoose = require('mongoose');
+    let student = null;
+    if (mongoose.Types.ObjectId.isValid(req.params.id)) {
+      student = await Student.findById(req.params.id);
+    }
+    if (!student) {
+      student = await Student.findOne({ reg_no: req.params.id });
+    }
+    
     if (!student) {
       res.status(404);
-      throw new Error(`Student with ID '${req.params.id}' not found`);
+      throw new Error(`Student with ID or Register Number '${req.params.id}' not found`);
     }
 
     res.status(200).json({

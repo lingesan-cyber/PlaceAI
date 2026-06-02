@@ -289,7 +289,7 @@ export const PlacementOfficerDashboard: React.FC = () => {
     if (!hrForm.name || !hrForm.email || !hrForm.company) return;
 
     let batchYear = Number(selectedYear);
-    if (isNaN(batchYear) || selectedYear === 'All') {
+    if (isNaN(batchYear) || selectedYear.toLowerCase() === 'all') {
       batchYear = 2024; // Fallback default
     }
 
@@ -411,10 +411,16 @@ export const PlacementOfficerDashboard: React.FC = () => {
     filename: string;
     date: string;
     totalRecords: number;
-    importedCount: number;
-    duplicateCount: number;
-    overwrittenCount: number;
+    studentsInserted: number;
+    studentsUpdated: number;
+    companiesInserted: number;
+    companiesUpdated: number;
+    placementsInserted: number;
+    placementsUpdated: number;
+    hrInserted: number;
+    hrUpdated: number;
     errorCount: number;
+    duplicateCount: number;
     skippedDetails: { regNo: string; name: string; reason: string }[];
   }
 
@@ -463,24 +469,44 @@ export const PlacementOfficerDashboard: React.FC = () => {
         const parsed = rawRows.map((row: any) => {
           const getVal = (possibleKeys: string[]) => {
             const key = Object.keys(row).find(k => 
-              possibleKeys.some(pk => k.toLowerCase().replace(/[\s_.-]/g, '') === pk)
+              possibleKeys.some(pk => k.toLowerCase().replace(/[\s_.-]/g, '') === pk.toLowerCase().replace(/[\s_.-]/g, ''))
             );
             return key ? row[key] : undefined;
           };
 
           const regNoRaw = getVal(['regno', 'regnumber', 'registerno', 'registernumber', 'rollno', 'rollnumber', 'id']);
-          const nameRaw = getVal(['name', 'studentname', 'fullname']);
+          const nameRaw = getVal(['name', 'studentname', 'fullname', 'student_name']);
           const deptRaw = getVal(['dept', 'department', 'branch']);
+          const batchYearRaw = getVal(['batchyear', 'year', 'batch_year']);
           const cgpaRaw = getVal(['cgpa', 'gpa', 'grades']);
           const arrearsRaw = getVal(['arrears', 'backlogs', 'activearrears', 'activebacklogs']);
           const skillsRaw = getVal(['skills', 'skillslist', 'skillslistcommaseparated']);
+          
+          const companyRaw = getVal(['companyname', 'company', 'company_name']);
+          const roleRaw = getVal(['role', 'roleoffered', 'designation']);
+          const packageRaw = getVal(['package', 'lpa', 'packages', 'packagevalue']);
+          const statusRaw = getVal(['placementstatus', 'status', 'placement_status']);
+          const driveDateRaw = getVal(['drivedate', 'date', 'drive_date']);
+          const hrNameRaw = getVal(['hrname', 'hr_name', 'recruitername']);
+          const hrEmailRaw = getVal(['hremail', 'email', 'hremailaddress', 'hr_email']);
+          const hrPhoneRaw = getVal(['hrphone', 'phone', 'hrphonenumber', 'hr_phone']);
 
           const regNo = regNoRaw ? String(regNoRaw).trim() : '';
           const name = nameRaw ? String(nameRaw).trim() : '';
           const dept = deptRaw ? String(deptRaw).trim().toUpperCase() : '';
+          const batch_year = batchYearRaw !== undefined ? parseInt(batchYearRaw, 10) : NaN;
           const cgpa = cgpaRaw !== undefined ? parseFloat(cgpaRaw) : NaN;
           const arrears = arrearsRaw !== undefined ? parseInt(arrearsRaw, 10) : NaN;
           
+          const company_name = companyRaw ? String(companyRaw).trim() : '';
+          const role = roleRaw ? String(roleRaw).trim() : '';
+          const packageVal = packageRaw !== undefined ? parseFloat(packageRaw) : NaN;
+          const placement_status = statusRaw ? String(statusRaw).trim() : '';
+          const drive_date = driveDateRaw ? String(driveDateRaw).trim() : '';
+          const hr_name = hrNameRaw ? String(hrNameRaw).trim() : '';
+          const hr_email = hrEmailRaw ? String(hrEmailRaw).trim() : '';
+          const hr_phone = hrPhoneRaw ? String(hrPhoneRaw).trim() : '';
+
           let skillsArray: string[] = [];
           if (skillsRaw) {
             if (Array.isArray(skillsRaw)) {
@@ -493,25 +519,53 @@ export const PlacementOfficerDashboard: React.FC = () => {
           const isRegNoInvalid = !regNo;
           const isNameInvalid = !name;
           const isDeptInvalid = !dept || !departments.includes(dept);
+          const isBatchYearInvalid = isNaN(batch_year) || batch_year < 2000;
           const isCgpaInvalid = isNaN(cgpa) || cgpa < 0 || cgpa > 10;
           const isArrearsInvalid = isNaN(arrears) || arrears < 0;
+
+          let hasError = isRegNoInvalid || isNameInvalid || isDeptInvalid || isBatchYearInvalid || isCgpaInvalid || isArrearsInvalid;
+
+          let isCompanyInvalid = false;
+          let isEmailInvalid = false;
+          if (company_name) {
+            if (packageRaw !== undefined && (isNaN(packageVal) || packageVal <= 0)) {
+              isCompanyInvalid = true;
+            }
+            if (hr_email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(hr_email)) {
+              isEmailInvalid = true;
+            }
+          }
+
+          hasError = hasError || isCompanyInvalid || isEmailInvalid;
 
           return {
             regNo,
             name,
             dept,
-            cgpa: isNaN(cgpa) ? cgpaRaw : cgpa,
-            arrears: isNaN(arrears) ? arrearsRaw : arrears,
+            batch_year,
+            cgpa,
+            arrears,
             skills: skillsArray,
             skillsString: skillsRaw ? String(skillsRaw) : '',
+            company_name,
+            role,
+            packageVal,
+            placement_status,
+            drive_date,
+            hr_name,
+            hr_email,
+            hr_phone,
             validation: {
               regNo: isRegNoInvalid,
               name: isNameInvalid,
               dept: isDeptInvalid,
+              batch_year: isBatchYearInvalid,
               cgpa: isCgpaInvalid,
               arrears: isArrearsInvalid,
+              company: isCompanyInvalid,
+              email: isEmailInvalid
             },
-            hasError: isRegNoInvalid || isNameInvalid || isDeptInvalid || isCgpaInvalid || isArrearsInvalid,
+            hasError
           };
         });
 
@@ -525,10 +579,6 @@ export const PlacementOfficerDashboard: React.FC = () => {
             isDup = true;
           } else {
             seenRegNos.add(item.regNo);
-          }
-          const isExisting = kanbanStudents.some(s => s.regNo === item.regNo);
-          if (isExisting) {
-            isDup = true;
           }
           return { ...item, isDuplicate: isDup };
         });
@@ -582,70 +632,53 @@ export const PlacementOfficerDashboard: React.FC = () => {
     }
 
     try {
-      if (duplicatePolicy === 'overwrite') {
-        setKanbanStudents(prev => {
-          const updated = prev.map(s => {
-            const match = duplicateRows.find(dr => dr.regNo === s.regNo);
-            if (match) {
-              return { ...s, name: match.name, dept: match.dept };
-            }
-            return s;
-          });
-
-          const onlyNew = newRows.map((r, i) => ({
-            id: `imported-${Date.now()}-${i}`,
-            regNo: r.regNo,
-            name: r.name,
-            stage: 'Applied',
-            company: 'General Pool'
-          }));
-
-          return [...updated, ...onlyNew];
-        });
-      } else {
-        const onlyNew = newRows.map((r, i) => ({
-          id: `imported-${Date.now()}-${i}`,
-          regNo: r.regNo,
-          name: r.name,
-          stage: 'Applied',
-          company: 'General Pool'
-        }));
-        setKanbanStudents(prev => [...prev, ...onlyNew]);
-      }
-
       const formData = new FormData();
       if (activeFile) {
         formData.append('file', activeFile);
       } else {
-        const blob = new Blob([JSON.stringify(validRowsToImport)], { type: 'application/json' });
+        const normalizedData = validRowsToImport.map(r => ({
+          reg_no: r.regNo,
+          student_name: r.name,
+          department: r.dept,
+          batch_year: r.batch_year,
+          cgpa: r.cgpa,
+          arrears: r.arrears,
+          skills: r.skills,
+          company_name: r.company_name,
+          role: r.role,
+          package: r.packageVal,
+          placement_status: r.placement_status,
+          drive_date: r.drive_date,
+          hr_name: r.hr_name,
+          hr_email: r.hr_email,
+          hr_phone: r.hr_phone
+        }));
+        const blob = new Blob([JSON.stringify(normalizedData)], { type: 'application/json' });
         formData.append('file', blob, uploadedFilename || 'dummy_data.json');
       }
-      formData.append('year', selectedYear);
-      formData.append('validCount', String(validRowsToImport.length));
-      formData.append('students', JSON.stringify(validRowsToImport.map(r => ({
-        name: r.name,
-        dept: r.dept,
-        cgpa: r.cgpa,
-        arrears: r.arrears,
-        skills: r.skills
-      }))));
 
-      let uploadEndpoint = '/upload/json';
+      let uploadEndpoint = `/upload/json?policy=${duplicatePolicy === 'overwrite' ? 'overwrite' : 'skip'}`;
       if (activeFile) {
         const isExcel = activeFile.name.endsWith('.xlsx') || activeFile.name.endsWith('.xls') || activeFile.name.endsWith('.csv');
         if (isExcel) {
-          uploadEndpoint = '/upload/excel';
+          uploadEndpoint = `/upload/excel?policy=${duplicatePolicy === 'overwrite' ? 'overwrite' : 'skip'}`;
         }
       }
 
-      await apiClient.post(uploadEndpoint, formData, {
+      const response = await apiClient.post(uploadEndpoint, formData, {
         headers: {
           'Content-Type': 'multipart/form-data'
         }
       });
 
-      await queryClient.invalidateQueries({ queryKey: ['dashboard'] });
-      await queryClient.invalidateQueries({ queryKey: ['officer', 'students'] });
+      // Invalidate all related queries to fully re-sync client state
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ['dashboard'] }),
+        queryClient.invalidateQueries({ queryKey: ['officer'] }),
+        queryClient.invalidateQueries({ queryKey: ['search'] })
+      ]);
+
+      const backendSummary = response.data?.data || {};
 
       const skippedDetails: { regNo: string; name: string; reason: string }[] = [];
       
@@ -664,8 +697,11 @@ export const PlacementOfficerDashboard: React.FC = () => {
         if (r.validation.regNo) issues.push('Missing Register Number');
         if (r.validation.name) issues.push('Missing Student Name');
         if (r.validation.dept) issues.push('Invalid/Missing Department');
+        if (r.validation.batch_year) issues.push('Invalid/Missing Batch Year');
         if (r.validation.cgpa) issues.push('Invalid/Missing CGPA');
         if (r.validation.arrears) issues.push('Invalid/Missing Arrears');
+        if (r.validation.company) issues.push('Invalid Company/Package');
+        if (r.validation.email) issues.push('Invalid HR Email');
         
         skippedDetails.push({
           regNo: r.regNo || 'N/A',
@@ -674,14 +710,30 @@ export const PlacementOfficerDashboard: React.FC = () => {
         });
       });
 
+      const totalInserted = (backendSummary.studentsInserted || 0) + 
+                            (backendSummary.companiesInserted || 0) + 
+                            (backendSummary.placementsInserted || 0) + 
+                            (backendSummary.hrInserted || 0);
+
+      const totalUpdated = (backendSummary.studentsUpdated || 0) + 
+                          (backendSummary.companiesUpdated || 0) + 
+                          (backendSummary.placementsUpdated || 0) + 
+                          (backendSummary.hrUpdated || 0);
+
       const report: ImportReport = {
         filename: uploadedFilename || 'imported_file',
         date: new Date().toLocaleString(),
         totalRecords: importedRows.length,
-        importedCount: validRowsToImport.length,
-        duplicateCount: duplicatePolicy === 'skip' ? duplicateRows.length : 0,
-        overwrittenCount: duplicatePolicy === 'overwrite' ? duplicateRows.length : 0,
-        errorCount: errorRows.length,
+        studentsInserted: backendSummary.studentsInserted || 0,
+        studentsUpdated: backendSummary.studentsUpdated || 0,
+        companiesInserted: backendSummary.companiesInserted || 0,
+        companiesUpdated: backendSummary.companiesUpdated || 0,
+        placementsInserted: backendSummary.placementsInserted || 0,
+        placementsUpdated: backendSummary.placementsUpdated || 0,
+        hrInserted: backendSummary.hrInserted || 0,
+        hrUpdated: backendSummary.hrUpdated || 0,
+        errorCount: backendSummary.invalidRecords || 0,
+        duplicateCount: backendSummary.duplicateRecords || 0,
         skippedDetails
       };
 
@@ -691,9 +743,9 @@ export const PlacementOfficerDashboard: React.FC = () => {
         {
           filename: uploadedFilename || 'imported_file',
           date: new Date().toLocaleDateString(),
-          recordsImported: validRowsToImport.length,
-          duplicatesSkipped: duplicatePolicy === 'skip' ? duplicateRows.length + errorRows.length : errorRows.length,
-          duplicatesOverwritten: duplicatePolicy === 'overwrite' ? duplicateRows.length : 0,
+          recordsImported: totalInserted,
+          duplicatesSkipped: backendSummary.duplicateRecords || 0,
+          duplicatesOverwritten: totalUpdated,
           policy: duplicatePolicy,
           timestamp: new Date().toLocaleTimeString()
         },
@@ -1492,19 +1544,19 @@ export const PlacementOfficerDashboard: React.FC = () => {
                   <h4 className="text-lg font-black text-slate-800 mt-1">{importedRows.length}</h4>
                 </div>
                 <div className="bg-emerald-50/40 p-4 rounded-xl border border-emerald-100 shadow-sm">
-                  <span className="text-[10px] font-bold text-emerald-600 uppercase tracking-wider">Valid Records</span>
+                  <span className="text-[10px] font-bold text-emerald-600 uppercase tracking-wider">Valid Rows</span>
                   <h4 className="text-lg font-black text-emerald-700 mt-1">
                     {importedRows.filter(r => !r.hasError && !r.isDuplicate).length}
                   </h4>
                 </div>
                 <div className="bg-rose-50/40 p-4 rounded-xl border border-rose-100 shadow-sm">
-                  <span className="text-[10px] font-bold text-rose-600 uppercase tracking-wider">Duplicates Found</span>
+                  <span className="text-[10px] font-bold text-rose-600 uppercase tracking-wider">Row Duplicates</span>
                   <h4 className="text-lg font-black text-rose-700 mt-1">
                     {importedRows.filter(r => r.isDuplicate).length}
                   </h4>
                 </div>
                 <div className="bg-amber-50/40 p-4 rounded-xl border border-amber-100 shadow-sm">
-                  <span className="text-[10px] font-bold text-amber-600 uppercase tracking-wider">Errors Found</span>
+                  <span className="text-[10px] font-bold text-amber-600 uppercase tracking-wider">Row Errors</span>
                   <h4 className="text-lg font-black text-amber-700 mt-1">
                     {importedRows.filter(r => r.hasError).length}
                   </h4>
@@ -1515,7 +1567,7 @@ export const PlacementOfficerDashboard: React.FC = () => {
               <div className="bg-slate-50 border border-slate-200 rounded-2xl p-5 text-xs flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                 <div>
                   <h4 className="font-extrabold text-slate-800 text-sm">Duplicate Resolution Policy</h4>
-                  <p className="text-slate-400 text-[10px] mt-0.5">Determine how to handle matching register numbers.</p>
+                  <p className="text-slate-400 text-[10px] mt-0.5">Determine how to handle matching records across distributed collections.</p>
                 </div>
                 <div className="flex gap-4">
                   <label className="flex items-center gap-2 cursor-pointer font-bold text-slate-650">
@@ -1526,7 +1578,7 @@ export const PlacementOfficerDashboard: React.FC = () => {
                       onChange={() => setDuplicatePolicy('skip')}
                       className="text-blue-600 focus:ring-blue-500 cursor-pointer h-4 w-4"
                     />
-                    <span>Skip Duplicates (Filter Out)</span>
+                    <span>Skip Duplicates (Keep Existing)</span>
                   </label>
                   <label className="flex items-center gap-2 cursor-pointer font-bold text-slate-650">
                     <input
@@ -1536,7 +1588,7 @@ export const PlacementOfficerDashboard: React.FC = () => {
                       onChange={() => setDuplicatePolicy('overwrite')}
                       className="text-blue-600 focus:ring-blue-500 cursor-pointer h-4 w-4"
                     />
-                    <span>Overwrite Existing Roster</span>
+                    <span>Update Existing Database Records</span>
                   </label>
                 </div>
               </div>
@@ -1570,20 +1622,25 @@ export const PlacementOfficerDashboard: React.FC = () => {
               {/* Table Preview */}
               <div className="border border-slate-200 rounded-xl overflow-hidden bg-white shadow-sm">
                 <div className="px-4 py-3 bg-slate-50 border-b border-slate-200 font-bold text-xs text-slate-700 flex items-center justify-between">
-                  <span>File Preview: {uploadedFilename}</span>
-                  <span className="text-[10px] text-slate-400 font-medium">Verify data highlights before confirming</span>
+                  <span>Master Placement File Preview: {uploadedFilename}</span>
+                  <span className="text-[10px] text-slate-400 font-medium">Verify structural maps before database submission</span>
                 </div>
                 <div className="overflow-x-auto">
-                  <table className="w-full text-left text-xs border-collapse">
+                  <table className="w-full text-left text-xs border-collapse min-w-[1200px]">
                     <thead>
                       <tr className="bg-slate-50/50 text-slate-500 border-b border-slate-200 uppercase text-[10px]">
-                        <th className="px-4 py-2 font-semibold">Register Number</th>
+                        <th className="px-4 py-2 font-semibold">Register No</th>
                         <th className="px-4 py-2 font-semibold">Student Name</th>
-                        <th className="px-4 py-2 font-semibold">Department</th>
+                        <th className="px-4 py-2 font-semibold">Batch</th>
+                        <th className="px-4 py-2 font-semibold">Dept</th>
                         <th className="px-4 py-2 font-semibold">CGPA</th>
                         <th className="px-4 py-2 font-semibold">Arrears</th>
-                        <th className="px-4 py-2 font-semibold">Skills</th>
-                        <th className="px-4 py-2 font-semibold">Status / Action</th>
+                        <th className="px-4 py-2 font-semibold">Recruiter / Offer</th>
+                        <th className="px-4 py-2 font-semibold">Package</th>
+                        <th className="px-4 py-2 font-semibold">Status</th>
+                        <th className="px-4 py-2 font-semibold">HR Contact</th>
+                        <th className="px-4 py-2 font-semibold">Affected DB Collections</th>
+                        <th className="px-4 py-2 font-semibold">Status</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-100 text-slate-700">
@@ -1595,11 +1652,11 @@ export const PlacementOfficerDashboard: React.FC = () => {
                           return true;
                         })
                         .map((r, i) => {
-                          let statusText = "Valid (New)";
+                          let statusText = "Valid Row";
                           let statusColor = "text-emerald-700 bg-emerald-50 border-emerald-100";
                           if (r.isDuplicate) {
                             if (duplicatePolicy === 'overwrite') {
-                              statusText = "Duplicate (OVERWRITE)";
+                              statusText = "Duplicate (UPDATE)";
                               statusColor = "text-blue-700 bg-blue-50 border-blue-100 animate-pulse";
                             } else {
                               statusText = "Duplicate (SKIP)";
@@ -1612,25 +1669,69 @@ export const PlacementOfficerDashboard: React.FC = () => {
 
                           return (
                             <tr key={i} className="hover:bg-slate-50/30">
-                              <td className={`px-4 py-3 font-semibold ${r.isDuplicate ? (duplicatePolicy === 'overwrite' ? 'bg-blue-50/30 text-blue-900 border-l-4 border-blue-500' : 'bg-rose-50 text-rose-850 font-bold border-l-4 border-rose-500') : r.validation.regNo ? 'bg-amber-50 text-amber-800 border-l-4 border-amber-500' : ''}`}>
+                              <td className={`px-4 py-3 font-semibold ${r.validation.regNo ? 'bg-amber-50 text-amber-800' : ''}`}>
                                 {r.regNo || <span className="italic text-slate-400">Missing</span>}
                               </td>
-                              <td className={`px-4 py-3 font-semibold ${r.validation.name ? 'bg-amber-50 text-amber-800 border-l-4 border-amber-500' : ''}`}>
+                              <td className={`px-4 py-3 font-bold ${r.validation.name ? 'bg-amber-50 text-amber-800' : ''}`}>
                                 {r.name || <span className="italic text-slate-400">Missing</span>}
                               </td>
-                              <td className={`px-4 py-3 ${r.validation.dept ? 'bg-amber-50 text-amber-800 border-l-4 border-amber-500' : ''}`}>
+                              <td className={`px-4 py-3 font-semibold ${r.validation.batch_year ? 'bg-amber-50 text-amber-800' : ''}`}>
+                                {isNaN(r.batch_year) ? 'N/A' : r.batch_year}
+                              </td>
+                              <td className={`px-4 py-3 ${r.validation.dept ? 'bg-amber-50 text-amber-800' : ''}`}>
                                 <span className="px-2 py-0.5 bg-slate-100 text-slate-650 rounded font-semibold text-[10px]">
                                   {r.dept || 'N/A'}
                                 </span>
                               </td>
-                              <td className={`px-4 py-3 font-semibold ${r.validation.cgpa ? 'bg-amber-50 text-amber-800 border-l-4 border-amber-500' : ''}`}>
-                                {r.cgpa}
+                              <td className={`px-4 py-3 font-semibold ${r.validation.cgpa ? 'bg-amber-50 text-amber-800' : ''}`}>
+                                {isNaN(r.cgpa) ? 'N/A' : r.cgpa}
                               </td>
-                              <td className={`px-4 py-3 text-slate-500 font-semibold ${r.validation.arrears ? 'bg-amber-50 text-amber-800 border-l-4 border-amber-500' : ''}`}>
-                                {r.arrears} arrears
+                              <td className={`px-4 py-3 text-slate-500 font-semibold ${r.validation.arrears ? 'bg-amber-50 text-amber-800' : ''}`}>
+                                {isNaN(r.arrears) ? 'N/A' : `${r.arrears} arrears`}
                               </td>
-                              <td className="px-4 py-3 text-slate-400 truncate max-w-xs" title={r.skillsString}>
-                                {r.skills.join(', ') || <span className="italic text-slate-350">None</span>}
+                              <td className="px-4 py-3 font-semibold">
+                                {r.company_name ? (
+                                  <div>
+                                    <p className="text-slate-800">{r.company_name}</p>
+                                    {r.role && <p className="text-[10px] text-slate-400">{r.role}</p>}
+                                  </div>
+                                ) : (
+                                  <span className="italic text-slate-350">None</span>
+                                )}
+                              </td>
+                              <td className={`px-4 py-3 font-semibold ${r.validation.company ? 'bg-amber-50 text-amber-800' : ''}`}>
+                                {isNaN(r.packageVal) ? 'N/A' : `${r.packageVal} LPA`}
+                              </td>
+                              <td className="px-4 py-3">
+                                {r.placement_status ? (
+                                  <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${
+                                    r.placement_status === 'Placed' ? 'bg-emerald-50 text-emerald-700' : 'bg-slate-100 text-slate-600'
+                                  }`}>
+                                    {r.placement_status}
+                                  </span>
+                                ) : 'N/A'}
+                              </td>
+                              <td className={`px-4 py-3 ${r.validation.email ? 'bg-amber-50 text-amber-800' : ''}`}>
+                                {r.hr_name ? (
+                                  <div>
+                                    <p className="text-slate-700 font-bold">{r.hr_name}</p>
+                                    <p className="text-[9px] text-slate-400">{r.hr_email}</p>
+                                  </div>
+                                ) : 'N/A'}
+                              </td>
+                              <td className="px-4 py-3">
+                                <div className="flex flex-wrap gap-1">
+                                  <span className="px-1.5 py-0.5 bg-emerald-50 text-emerald-700 border border-emerald-100 rounded text-[9px] font-bold">Students</span>
+                                  {r.company_name && (
+                                    <span className="px-1.5 py-0.5 bg-blue-50 text-blue-700 border border-blue-100 rounded text-[9px] font-bold">Companies</span>
+                                  )}
+                                  {r.company_name && r.placement_status && (
+                                    <span className="px-1.5 py-0.5 bg-purple-50 text-purple-700 border border-purple-100 rounded text-[9px] font-bold">Placements</span>
+                                  )}
+                                  {r.company_name && r.hr_name && r.hr_email && (
+                                    <span className="px-1.5 py-0.5 bg-amber-50 text-amber-700 border border-amber-100 rounded text-[9px] font-bold">HR Contacts</span>
+                                  )}
+                                </div>
                               </td>
                               <td className="px-4 py-3">
                                 <span className={`inline-flex px-2 py-0.5 rounded text-[9px] font-extrabold border ${statusColor}`}>
@@ -1657,7 +1758,7 @@ export const PlacementOfficerDashboard: React.FC = () => {
                   onClick={confirmImport}
                   className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-bold transition-all shadow-md shadow-emerald-500/10 cursor-pointer"
                 >
-                  Confirm Import
+                  Confirm Master Import
                 </button>
               </div>
             </div>
@@ -1665,43 +1766,60 @@ export const PlacementOfficerDashboard: React.FC = () => {
 
           {/* Import Feedback Report */}
           {importReport && (
-            <div className="p-5 bg-slate-50 border border-slate-200 rounded-2xl space-y-4">
+            <div className="p-6 bg-slate-50 border border-slate-200 rounded-2xl space-y-4 shadow-sm">
               <div className="flex items-center gap-2 text-emerald-700 border-b border-slate-200 pb-3">
                 <CheckCircle2 className="h-5 w-5 text-emerald-600" />
-                <h4 className="font-extrabold text-sm text-slate-800">Batch Import Feedback Report</h4>
+                <h4 className="font-extrabold text-sm text-slate-800">Master Placement Data Import Success Report</h4>
               </div>
 
-              <div className="grid grid-cols-2 md:grid-cols-5 gap-4 text-xs">
+              {/* Collection stats summary grid */}
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-xs">
+                <div className="bg-white p-3 rounded-xl border border-slate-200 shadow-xs">
+                  <span className="text-slate-400 block font-bold uppercase tracking-wider text-[9px]">Students Pool</span>
+                  <p className="font-extrabold text-slate-800 mt-1">Inserted: <span className="text-emerald-600">{importReport.studentsInserted}</span></p>
+                  <p className="font-extrabold text-slate-800">Updated: <span className="text-blue-600">{importReport.studentsUpdated}</span></p>
+                </div>
+                <div className="bg-white p-3 rounded-xl border border-slate-200 shadow-xs">
+                  <span className="text-slate-400 block font-bold uppercase tracking-wider text-[9px]">Recruiters Drives</span>
+                  <p className="font-extrabold text-slate-800 mt-1">Inserted: <span className="text-emerald-600">{importReport.companiesInserted}</span></p>
+                  <p className="font-extrabold text-slate-800">Updated: <span className="text-blue-600">{importReport.companiesUpdated}</span></p>
+                </div>
+                <div className="bg-white p-3 rounded-xl border border-slate-200 shadow-xs">
+                  <span className="text-slate-400 block font-bold uppercase tracking-wider text-[9px]">Placements Logs</span>
+                  <p className="font-extrabold text-slate-800 mt-1">Inserted: <span className="text-emerald-600">{importReport.placementsInserted}</span></p>
+                  <p className="font-extrabold text-slate-800">Updated: <span className="text-blue-600">{importReport.placementsUpdated}</span></p>
+                </div>
+                <div className="bg-white p-3 rounded-xl border border-slate-200 shadow-xs">
+                  <span className="text-slate-400 block font-bold uppercase tracking-wider text-[9px]">HR Contacts Directory</span>
+                  <p className="font-extrabold text-slate-800 mt-1">Inserted: <span className="text-emerald-600">{importReport.hrInserted}</span></p>
+                  <p className="font-extrabold text-slate-800">Updated: <span className="text-blue-600">{importReport.hrUpdated}</span></p>
+                </div>
+              </div>
+
+              {/* General Metadata */}
+              <div className="grid grid-cols-1 md:grid-cols-4 gap-4 text-xs pt-3 border-t border-slate-100">
                 <div>
                   <span className="text-slate-400 block">Filename:</span>
-                  <span className="font-bold text-slate-700 truncate max-w-[120px] block">{importReport.filename}</span>
+                  <span className="font-bold text-slate-700 truncate max-w-[150px] block">{importReport.filename}</span>
                 </div>
                 <div>
-                  <span className="text-slate-400 block">Date of Import:</span>
-                  <span className="font-bold text-slate-700">{importReport.date.split(',')[0]}</span>
-                </div>
-                <div>
-                  <span className="text-slate-400 block">Successfully Added:</span>
-                  <span className="font-extrabold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-100 inline-block">{importReport.importedCount} Students</span>
-                </div>
-                <div>
-                  <span className="text-slate-400 block">Conflict Policy:</span>
+                  <span className="text-slate-400 block">Ingestion Conflict Policy:</span>
                   <span className="font-extrabold text-blue-600 bg-blue-50 px-2 py-0.5 rounded border border-blue-100 inline-block capitalize">{duplicatePolicy}</span>
                 </div>
                 <div>
-                  <span className="text-slate-400 block">Skipped/Overwritten:</span>
-                  {duplicatePolicy === 'overwrite' ? (
-                    <span className="font-extrabold text-blue-600 bg-blue-50 px-2 py-0.5 rounded border border-blue-100 inline-block">{importReport.overwrittenCount} Overwritten</span>
-                  ) : (
-                    <span className="font-extrabold text-rose-600 bg-rose-50 px-2 py-0.5 rounded border border-rose-100 inline-block">{importReport.duplicateCount + importReport.errorCount} Skipped</span>
-                  )}
+                  <span className="text-slate-400 block">Ignored / Duplicate Rows:</span>
+                  <span className="font-extrabold text-rose-600 bg-rose-50 px-2 py-0.5 rounded border border-rose-100 inline-block">{importReport.duplicateCount} Rows</span>
+                </div>
+                <div>
+                  <span className="text-slate-400 block">Invalid Rows Skipped:</span>
+                  <span className="font-extrabold text-amber-600 bg-amber-50 px-2 py-0.5 rounded border border-amber-100 inline-block">{importReport.errorCount} Rows</span>
                 </div>
               </div>
 
               {importReport.skippedDetails.length > 0 && (
                 <div className="bg-white border border-slate-200 rounded-xl overflow-hidden mt-3">
                   <div className="px-4 py-2.5 bg-slate-100/50 border-b border-slate-200 font-bold text-xs text-slate-700">
-                    Skipped Records & Reason Logs
+                    Importer Rejection Reason Logs
                   </div>
                   <div className="max-h-48 overflow-y-auto divide-y divide-slate-100 text-[11px]">
                     {importReport.skippedDetails.map((item, idx) => (

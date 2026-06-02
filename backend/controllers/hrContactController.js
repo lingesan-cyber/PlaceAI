@@ -12,7 +12,7 @@ const getHRContacts = async (req, res, next) => {
 
     // Support both 'year' and 'batch_year' parameters
     const selectedYear = year || batch_year;
-    if (selectedYear && selectedYear !== 'All') {
+    if (selectedYear && String(selectedYear).trim().toLowerCase() !== 'all') {
       const numericYear = Number(selectedYear);
       if (!isNaN(numericYear)) {
         filter.batch_year = numericYear;

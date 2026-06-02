@@ -6,6 +6,14 @@ import { useYearsStore } from '../store/useYearsStore';
 import { useYearsQuery } from '../hooks/useMetadata';
 import { useQuery } from '@tanstack/react-query';
 import { apiClient } from '../lib/apiClient';
+import { useNavigate } from 'react-router-dom';
+
+const dashboardNames: Record<UserRole, string> = {
+  overall: 'Overall Analytics',
+  director: 'Director View',
+  officer: 'Placement Officer View',
+  training: 'Training Staff View',
+};
 
 export const Topbar: React.FC = () => {
   const {
@@ -19,10 +27,12 @@ export const Topbar: React.FC = () => {
     toggleCompareMode,
   } = useAuthStore();
 
+  const navigate = useNavigate();
+
   // Seed the Zustand years store from GET /api/years on first load
   useYearsQuery();
   const years = useYearsStore((s) => s.years);
-  const latestYear = years.length > 0 ? years[0] : 'All';
+  const latestYear = years.length > 0 ? years[0] : 'all';
   const yearsLoading = years.length === 0;
 
   const [showRoleSwitcher, setShowRoleSwitcher] = useState(false);
@@ -32,22 +42,91 @@ export const Topbar: React.FC = () => {
   const comparePanelRef = useRef<HTMLDivElement>(null);
   
   // Search Overlay States
-  const [selectedDept, setSelectedDept] = useState<string | null>(null);
-  const [selectedYearFilter, setSelectedYearFilter] = useState<string | null>(null);
-  const [selectedCompanyFilter, setSelectedCompanyFilter] = useState<string | null>(null);
   const [isSearchFocused, setIsSearchFocused] = useState(false);
   const searchDropdownRef = useRef<HTMLDivElement>(null);
 
-  // Live queries to retrieve search data directly from the MongoDB backend
-  const { data: placementsList } = useQuery<any[]>({
-    queryKey: ['search', 'placements'],
+  // Debounced search term (300ms delay)
+  const [debouncedSearchQuery, setDebouncedSearchQuery] = useState('');
+
+  // Student Profile Drawer/Modal States
+  const [selectedStudentRegNo, setSelectedStudentRegNo] = useState<string | null>(null);
+  const [showStudentModal, setShowStudentModal] = useState(false);
+
+  useEffect(() => {
+    const handler = setTimeout(() => {
+      setDebouncedSearchQuery(searchQuery);
+    }, 300);
+
+    return () => {
+      clearTimeout(handler);
+    };
+  }, [searchQuery]);
+
+  // Live query for global search
+  const { data: globalSearchResults, isLoading: isSearchLoading } = useQuery<any>({
+    queryKey: ['globalSearch', debouncedSearchQuery],
     queryFn: async () => {
-      const res = await apiClient.get('/placements?limit=500');
-      return res.data?.data?.placements || [];
+      if (debouncedSearchQuery.trim().length < 2) {
+        return {
+          students: [],
+          companies: [],
+          placements: [],
+          hr_contacts: [],
+          training_details: []
+        };
+      }
+      const res = await apiClient.get(`/search?q=${encodeURIComponent(debouncedSearchQuery.trim())}`);
+      return res.data?.data || {
+        students: [],
+        companies: [],
+        placements: [],
+        hr_contacts: [],
+        training_details: []
+      };
     },
-    staleTime: 5 * 60 * 1000
+    enabled: debouncedSearchQuery.trim().length >= 2,
+    staleTime: 30000 // Cache for 30 seconds
   });
 
+  // Query for fetching a detailed student profile when selected from search
+  const { data: studentProfile, isLoading: isProfileLoading, error: profileError } = useQuery<any>({
+    queryKey: ['studentProfile', selectedStudentRegNo],
+    queryFn: async () => {
+      if (!selectedStudentRegNo) return null;
+      
+      // 1. Fetch basic student info
+      const studentRes = await apiClient.get(`/students/${encodeURIComponent(selectedStudentRegNo)}`);
+      const student = studentRes.data?.data;
+      
+      // 2. Fetch placements matching student register number
+      let placements: any[] = [];
+      try {
+        const placementsRes = await apiClient.get(`/placements?search=${encodeURIComponent(selectedStudentRegNo)}`);
+        placements = placementsRes.data?.data?.placements?.filter((p: any) => p.reg_no === selectedStudentRegNo) || [];
+      } catch (err) {
+        console.log("No placement record found or failed to fetch:", err);
+      }
+      
+      // 3. Fetch training details by register number (gracefully handle 404 not found)
+      let training: any = null;
+      try {
+        const trainingRes = await apiClient.get(`/training-details/reg/${encodeURIComponent(selectedStudentRegNo)}`);
+        training = trainingRes.data?.data || null;
+      } catch (err) {
+        console.log("Gracefully handled training detail lookup failure (e.g. no record exists):", err);
+      }
+      
+      return {
+        student,
+        placement: placements.length > 0 ? placements[0] : null,
+        training
+      };
+    },
+    enabled: !!selectedStudentRegNo && showStudentModal,
+    staleTime: 30000 // Cache for 30 seconds
+  });
+
+  // Live queries to retrieve search data directly from the MongoDB backend (for notifications and other pages)
   const { data: companiesList } = useQuery<any[]>({
     queryKey: ['search', 'companies'],
     queryFn: async () => {
@@ -57,18 +136,9 @@ export const Topbar: React.FC = () => {
     staleTime: 5 * 60 * 1000
   });
 
-  const { data: hrList } = useQuery<any[]>({
-    queryKey: ['search', 'hrContacts'],
-    queryFn: async () => {
-      const res = await apiClient.get('/hr-contacts?year=All');
-      return res.data?.data || [];
-    },
-    staleTime: 5 * 60 * 1000
-  });
-
   // Auto-initialize selectedYear to the latest year when years first load
   useEffect(() => {
-    if (years.length > 0 && selectedYear === 'All') {
+    if (years.length > 0 && !selectedYear) {
       setSelectedYear(latestYear);
     }
   }, [years, latestYear, selectedYear, setSelectedYear]);
@@ -98,6 +168,7 @@ export const Topbar: React.FC = () => {
   const handleRoleChange = (role: UserRole) => {
     setRole(role);
     setShowRoleSwitcher(false);
+    navigate(`/dashboard/${role}`);
   };
 
   // Toggle a year in compareYears selection
@@ -122,105 +193,32 @@ export const Topbar: React.FC = () => {
       text: `${c.company_name} — ${c.status || 'Status Unknown'}`,
       time: c.drive_date ? new Date(c.drive_date).toLocaleString() : 'TBD'
     }));
-  }, [companiesList, placementsList]);
-
-  // Memoized Search Datasets
-  const searchStudents = React.useMemo(() => {
-    const list = placementsList || [];
-    return list.map((s: any, index: number) => ({
-      id: s._id || String(index + 1),
-      name: s.name,
-      regNo: s.reg_no,
-      dept: s.department,
-      year: String(s.batch_year ?? s.batchYear ?? s.year ?? ''),
-      company: s.company,
-      skills: s.department === 'CSE' || s.department === 'IT' || s.department === 'ADS'
-        ? ['React', 'Node', 'Java', 'SQL', 'Python']
-        : ['AutoCAD', 'MATLAB', 'C++', 'SolidWorks']
-    }));
-  }, [placementsList]);
-
-  const searchRecruiters = React.useMemo(() => {
-    const list = hrList || [];
-    return list.map((c: any) => ({
-      id: c._id,
-      name: c.hr_name,
-      company: c.company_name,
-      email: c.email,
-      phone: c.phone || ''
-    }));
-  }, [hrList]);
-
-  const searchDrives = React.useMemo(() => {
-    const list = companiesList || [];
-    return list.map((c: any, index: number) => {
-      const driveDate = c.drive_date ? new Date(c.drive_date) : new Date();
-      const batchYears = Array.from(new Set((placementsList || [])
-        .filter((p: any) => String(p.company ?? '').toLowerCase() === String(c.company_name ?? '').toLowerCase())
-        .map((p: any) => String(p.batch_year ?? p.batchYear ?? p.year ?? '').trim())
-        .filter(Boolean)));
-      return {
-        id: c._id || String(index + 1),
-        companyName: c.company_name,
-        status: c.status || 'Active',
-        date: c.drive_date ? driveDate.toISOString().split('T')[0] : '',
-        packageOffer: `${c.package || 0} LPA`,
-        year: String(driveDate.getFullYear()),
-        batchYears
-      };
-    });
   }, [companiesList]);
 
-  // Filtered lists in real-time
-  const filteredStudents = React.useMemo(() => {
-    return searchStudents.filter(s => {
-      const matchesText = !searchQuery || 
-        s.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        s.regNo.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        s.dept.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        s.skills.some(sk => sk.toLowerCase().includes(searchQuery.toLowerCase()));
-      
-      if (selectedDept && s.dept !== selectedDept) return false;
-      if (selectedYearFilter && s.year !== selectedYearFilter) return false;
-      if (selectedCompanyFilter && s.company.toLowerCase() !== selectedCompanyFilter.toLowerCase()) return false;
-      return matchesText;
-    });
-  }, [searchQuery, selectedDept, selectedYearFilter, selectedCompanyFilter, searchStudents]);
-
-  const filteredRecruiters = React.useMemo(() => {
-    return searchRecruiters.filter(r => {
-      const matchesText = !searchQuery ||
-        r.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        r.company.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        r.email.toLowerCase().includes(searchQuery.toLowerCase());
-      
-      if (selectedDept) return false;
-      if (selectedYearFilter) {
-        const hasDrive = searchDrives.some(d => d.companyName.toLowerCase() === r.company.toLowerCase() && d.batchYears.includes(selectedYearFilter));
-        if (!hasDrive) return false;
+  // Handle result click navigation with role updating when permitted (for non-student results)
+  const handleResultClick = (category: string) => {
+    setIsSearchFocused(false);
+    if (category === 'Companies' || category === 'HR Contacts') {
+      if (user && user.role !== 'overall' && user.role !== 'officer') {
+        setRole('officer');
       }
-      if (selectedCompanyFilter && r.company.toLowerCase() !== selectedCompanyFilter.toLowerCase()) return false;
-      return matchesText;
-    });
-  }, [searchQuery, selectedDept, selectedYearFilter, selectedCompanyFilter, searchRecruiters, searchDrives]);
-
-  const filteredDrives = React.useMemo(() => {
-    return searchDrives.filter(d => {
-      const matchesText = !searchQuery ||
-        d.companyName.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        d.status.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        d.packageOffer.toLowerCase().includes(searchQuery.toLowerCase());
-      
-      if (selectedDept) {
-        const list = placementsList || [];
-        const matchesDept = list.some((p: any) => p.department === selectedDept && p.company.toLowerCase() === d.companyName.toLowerCase());
-        if (!matchesDept) return false;
+      navigate('/dashboard/officer');
+    } else if (category === 'Training Records') {
+      if (user && user.role !== 'overall' && user.role !== 'training') {
+        setRole('training');
       }
-      if (selectedYearFilter && !d.batchYears.includes(selectedYearFilter)) return false;
-      if (selectedCompanyFilter && d.companyName.toLowerCase() !== selectedCompanyFilter.toLowerCase()) return false;
-      return matchesText;
-    });
-  }, [searchQuery, selectedDept, selectedYearFilter, selectedCompanyFilter, searchDrives, placementsList]);
+      navigate('/dashboard/training');
+    } else if (category === 'Placements') {
+      navigate('/dashboard/overall');
+    }
+  };
+
+  // Handle clicking a student profile search result (opens modal, no navigation)
+  const handleStudentResultClick = (regNo: string) => {
+    setIsSearchFocused(false);
+    setSelectedStudentRegNo(regNo);
+    setShowStudentModal(true);
+  };
 
   return (
     <header className="h-16 bg-white border-b border-slate-200 px-6 flex items-center justify-between z-10 shadow-sm relative">
@@ -231,7 +229,7 @@ export const Topbar: React.FC = () => {
         </div>
         <input
           type="text"
-          placeholder="Search students, recruiters, drives..."
+          placeholder="Global search across all years..."
           value={searchQuery}
           onFocus={() => setIsSearchFocused(true)}
           onChange={(e) => setSearchQuery(e.target.value)}
@@ -239,175 +237,177 @@ export const Topbar: React.FC = () => {
         />
 
         {isSearchFocused && (
-          <div className="absolute left-0 mt-2 w-[550px] bg-white border border-slate-200 rounded-xl shadow-2xl z-[100] overflow-hidden flex flex-col max-h-[500px]">
-            {/* Filter Chips Header */}
-            <div className="p-3 border-b border-slate-100 bg-slate-50 flex flex-col gap-2">
-              <div className="flex items-center justify-between">
-                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Interactive Filters</span>
-                {(selectedDept || selectedYearFilter || selectedCompanyFilter || searchQuery) && (
-                  <button 
-                    onClick={() => {
-                      setSelectedDept(null);
-                      setSelectedYearFilter(null);
-                      setSelectedCompanyFilter(null);
-                      setSearchQuery('');
-                    }}
-                    className="text-[10px] text-blue-600 font-bold hover:underline cursor-pointer"
-                  >
-                    Clear All
-                  </button>
-                )}
-              </div>
-              
-              {/* Department Chips */}
-              <div className="flex flex-wrap items-center gap-1.5">
-                <span className="text-[9px] font-bold text-slate-400 uppercase mr-1">Dept:</span>
-                {['CSE', 'IT', 'ECE', 'ME', 'CE'].map(dept => {
-                  const isSelected = selectedDept === dept;
-                  return (
-                    <button
-                      key={dept}
-                      onClick={() => setSelectedDept(isSelected ? null : dept)}
-                      className={`px-2 py-0.5 rounded text-[10px] font-semibold transition-all border ${
-                        isSelected 
-                          ? 'bg-blue-600 text-white border-blue-600 shadow-sm font-bold' 
-                          : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50 hover:text-slate-800'
-                      }`}
-                    >
-                      {dept}
-                    </button>
-                  );
-                })}
-              </div>
-
-              {/* Year Chips */}
-              <div className="flex flex-wrap items-center gap-1.5">
-                <span className="text-[9px] font-bold text-slate-400 uppercase mr-1.5">Year:</span>
-                {['2027', '2026', '2025', '2024'].map(yr => {
-                  const isSelected = selectedYearFilter === yr;
-                  return (
-                    <button
-                      key={yr}
-                      onClick={() => setSelectedYearFilter(isSelected ? null : yr)}
-                      className={`px-2 py-0.5 rounded text-[10px] font-semibold transition-all border ${
-                        isSelected 
-                          ? 'bg-purple-600 text-white border-purple-600 shadow-sm font-bold' 
-                          : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50 hover:text-slate-800'
-                      }`}
-                    >
-                      {yr}
-                    </button>
-                  );
-                })}
-              </div>
-
-              {/* Company Chips */}
-              <div className="flex flex-wrap items-center gap-1.5">
-                <span className="text-[9px] font-bold text-slate-400 uppercase mr-1">Comp:</span>
-                {['Google', 'Microsoft', 'Amazon', 'TCS', 'Infosys', 'Deloitte'].map(comp => {
-                  const isSelected = selectedCompanyFilter === comp;
-                  return (
-                    <button
-                      key={comp}
-                      onClick={() => setSelectedCompanyFilter(isSelected ? null : comp)}
-                      className={`px-2 py-0.5 rounded text-[10px] font-semibold transition-all border ${
-                        isSelected 
-                          ? 'bg-amber-600 text-white border-amber-600 shadow-sm font-bold' 
-                          : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50 hover:text-slate-800'
-                      }`}
-                    >
-                      {comp}
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-
+          <div className="absolute left-0 mt-2 w-[550px] bg-white border border-slate-200 rounded-xl shadow-2xl z-[100] overflow-hidden flex flex-col">
             {/* Search Results */}
-            <div className="flex-1 overflow-y-auto divide-y divide-slate-100 p-2">
-              {/* Category: Students */}
-              {filteredStudents.length > 0 && (
-                <div className="p-2">
-                  <div className="flex items-center justify-between mb-2">
-                    <span className="text-[10px] font-black text-blue-600 uppercase tracking-widest">Students ({filteredStudents.length})</span>
-                  </div>
-                  <div className="grid grid-cols-1 gap-1">
-                    {filteredStudents.slice(0, 5).map(s => (
-                      <div key={s.id} className="p-2 rounded-lg hover:bg-slate-50 flex items-center justify-between text-xs transition-colors border border-transparent hover:border-slate-150">
-                        <div>
-                          <p className="font-bold text-slate-800">{s.name}</p>
-                          <p className="text-[10px] text-slate-400 font-medium">Reg No: {s.regNo} • Year: {s.year}</p>
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <span className="px-1.5 py-0.5 rounded text-[9px] font-black bg-blue-50 text-blue-700 uppercase border border-blue-200">{s.dept}</span>
-                          {s.skills.slice(0, 2).map(skill => (
-                            <span key={skill} className="px-1.5 py-0.5 rounded text-[9px] font-semibold bg-slate-100 text-slate-600 border border-slate-200">{skill}</span>
-                          ))}
-                        </div>
-                      </div>
-                    ))}
-                    {filteredStudents.length > 5 && (
-                      <p className="text-[10px] text-slate-455 text-center py-1 font-semibold">And {filteredStudents.length - 5} more students...</p>
-                    )}
-                  </div>
-                </div>
-              )}
-
-              {/* Category: Recruiters */}
-              {filteredRecruiters.length > 0 && (
-                <div className="p-2">
-                  <div className="flex items-center justify-between mb-2">
-                    <span className="text-[10px] font-black text-amber-600 uppercase tracking-widest">Recruiters ({filteredRecruiters.length})</span>
-                  </div>
-                  <div className="grid grid-cols-1 gap-1">
-                    {filteredRecruiters.slice(0, 3).map(r => (
-                      <div key={r.id} className="p-2 rounded-lg hover:bg-slate-50 flex items-center justify-between text-xs transition-colors border border-transparent hover:border-slate-150">
-                        <div>
-                          <p className="font-bold text-slate-800">{r.name}</p>
-                          <p className="text-[10px] text-slate-400 font-medium">{r.email} • {r.phone}</p>
-                        </div>
-                        <span className="px-1.5 py-0.5 rounded text-[9px] font-black bg-amber-50 text-amber-700 uppercase border border-amber-200">{r.company}</span>
-                      </div>
-                    ))}
-                    {filteredRecruiters.length > 3 && (
-                      <p className="text-[10px] text-slate-455 text-center py-1 font-semibold">And {filteredRecruiters.length - 3} more recruiters...</p>
-                    )}
-                  </div>
-                </div>
-              )}
-
-              {/* Category: Drives */}
-              {filteredDrives.length > 0 && (
-                <div className="p-2">
-                  <div className="flex items-center justify-between mb-2">
-                    <span className="text-[10px] font-black text-purple-600 uppercase tracking-widest">Drives ({filteredDrives.length})</span>
-                  </div>
-                  <div className="grid grid-cols-1 gap-1">
-                    {filteredDrives.slice(0, 3).map(d => (
-                      <div key={d.id} className="p-2 rounded-lg hover:bg-slate-50 flex items-center justify-between text-xs transition-colors border border-transparent hover:border-slate-150">
-                        <div>
-                          <p className="font-bold text-slate-800">{d.companyName} Campus Drive ({d.year})</p>
-                          <p className="text-[10px] text-slate-400 font-medium">Date: {d.date} • Offer: {d.packageOffer}</p>
-                        </div>
-                        <span className={`px-1.5 py-0.5 rounded text-[9px] font-black uppercase border ${
-                          d.status === 'Completed' ? 'bg-emerald-50 text-emerald-700 border-emerald-200' :
-                          d.status === 'Ongoing' ? 'bg-blue-50 text-blue-700 border-blue-200' :
-                          'bg-amber-50 text-amber-700 border-amber-200'
-                        }`}>{d.status}</span>
-                      </div>
-                    ))}
-                    {filteredDrives.length > 3 && (
-                      <p className="text-[10px] text-slate-455 text-center py-1 font-semibold">And {filteredDrives.length - 3} more drives...</p>
-                    )}
-                  </div>
-                </div>
-              )}
-
-              {filteredStudents.length === 0 && filteredRecruiters.length === 0 && filteredDrives.length === 0 && (
+            <div className="flex-1 overflow-y-auto divide-y divide-slate-100 p-2 max-h-[400px]">
+              {isSearchLoading ? (
                 <div className="p-8 text-center text-slate-400">
-                  <p className="text-sm font-semibold">No results found</p>
-                  <p className="text-xs mt-1">Try adjusting your search query or removing some filters.</p>
+                  <div className="inline-block animate-spin rounded-full h-5 w-5 border-b-2 border-blue-600 mr-2" />
+                  <span className="text-sm font-medium">Searching records...</span>
                 </div>
+              ) : searchQuery.trim().length < 2 ? (
+                <div className="p-4 text-center text-slate-400">
+                  <p className="text-xs font-medium">Type at least 2 characters to search across all data...</p>
+                </div>
+              ) : (
+                <>
+                  {/* Category: Students */}
+                  {globalSearchResults?.students && globalSearchResults.students.length > 0 && (
+                    <div className="p-2">
+                      <div className="flex items-center justify-between mb-1">
+                        <span className="text-[10px] font-black text-blue-600 uppercase tracking-widest">Students</span>
+                      </div>
+                      <div className="grid grid-cols-1 gap-1">
+                        {globalSearchResults.students.map((s: any) => (
+                          <div
+                            key={s._id}
+                            onClick={() => handleStudentResultClick(s.reg_no)}
+                            className="p-2.5 rounded-lg hover:bg-slate-50 flex items-center justify-between text-xs transition-colors border border-transparent hover:border-slate-150 cursor-pointer"
+                          >
+                            <div>
+                              <p className="font-semibold text-slate-800 text-sm">{s.name}</p>
+                              <p className="text-xs text-slate-500 mt-0.5">
+                                Student • Batch {s.batch_year || 'N/A'}
+                              </p>
+                              <p className="text-[10px] text-slate-400 mt-0.5">Reg No: {s.reg_no} • {s.department}</p>
+                            </div>
+                            <span className="px-1.5 py-0.5 rounded text-[9px] font-black bg-blue-50 text-blue-700 uppercase border border-blue-200">
+                              {s.department}
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Category: Companies */}
+                  {globalSearchResults?.companies && globalSearchResults.companies.length > 0 && (
+                    <div className="p-2">
+                      <div className="flex items-center justify-between mb-1">
+                        <span className="text-[10px] font-black text-emerald-600 uppercase tracking-widest">Companies</span>
+                      </div>
+                      <div className="grid grid-cols-1 gap-1">
+                        {globalSearchResults.companies.map((c: any) => (
+                          <div
+                            key={c._id}
+                            onClick={() => handleResultClick('Companies')}
+                            className="p-2.5 rounded-lg hover:bg-slate-50 flex items-center justify-between text-xs transition-colors border border-transparent hover:border-slate-150 cursor-pointer"
+                          >
+                            <div>
+                              <p className="font-semibold text-slate-800 text-sm">{c.company_name}</p>
+                              <p className="text-xs text-slate-500 mt-0.5">
+                                Company • Batch {c.batch_year || 'N/A'}
+                              </p>
+                              <p className="text-[10px] text-slate-400 mt-0.5">Status: {c.status} • Package: {c.package} LPA</p>
+                            </div>
+                            <span className="px-1.5 py-0.5 rounded text-[9px] font-black bg-emerald-50 text-emerald-700 uppercase border border-emerald-200">
+                              {c.status}
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Category: Placements */}
+                  {globalSearchResults?.placements && globalSearchResults.placements.length > 0 && (
+                    <div className="p-2">
+                      <div className="flex items-center justify-between mb-1">
+                        <span className="text-[10px] font-black text-purple-600 uppercase tracking-widest">Placements</span>
+                      </div>
+                      <div className="grid grid-cols-1 gap-1">
+                        {globalSearchResults.placements.map((p: any) => (
+                          <div
+                            key={p._id}
+                            onClick={() => handleResultClick('Placements')}
+                            className="p-2.5 rounded-lg hover:bg-slate-50 flex items-center justify-between text-xs transition-colors border border-transparent hover:border-slate-150 cursor-pointer"
+                          >
+                            <div>
+                              <p className="font-semibold text-slate-800 text-sm">{p.name}</p>
+                              <p className="text-xs text-slate-500 mt-0.5">
+                                Placement • Batch {p.batch_year || p.year || 'N/A'}
+                              </p>
+                              <p className="text-[10px] text-slate-400 mt-0.5">Reg No: {p.reg_no} • {p.company} • {p.department}</p>
+                            </div>
+                            <span className="px-1.5 py-0.5 rounded text-[9px] font-black bg-purple-50 text-purple-700 uppercase border border-purple-200">
+                              Placed
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Category: HR Contacts */}
+                  {globalSearchResults?.hr_contacts && globalSearchResults.hr_contacts.length > 0 && (
+                    <div className="p-2">
+                      <div className="flex items-center justify-between mb-1">
+                        <span className="text-[10px] font-black text-amber-600 uppercase tracking-widest">HR Contacts</span>
+                      </div>
+                      <div className="grid grid-cols-1 gap-1">
+                        {globalSearchResults.hr_contacts.map((h: any) => (
+                          <div
+                            key={h._id}
+                            onClick={() => handleResultClick('HR Contacts')}
+                            className="p-2.5 rounded-lg hover:bg-slate-50 flex items-center justify-between text-xs transition-colors border border-transparent hover:border-slate-150 cursor-pointer"
+                          >
+                            <div>
+                              <p className="font-semibold text-slate-800 text-sm">{h.hr_name}</p>
+                              <p className="text-xs text-slate-500 mt-0.5">
+                                HR Contact • Batch {h.batch_year || 'N/A'}
+                              </p>
+                              <p className="text-[10px] text-slate-400 mt-0.5">{h.company_name} • {h.email}</p>
+                            </div>
+                            <span className="px-1.5 py-0.5 rounded text-[9px] font-black bg-amber-50 text-amber-700 uppercase border border-amber-200">
+                              Contact
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Category: Training Records */}
+                  {globalSearchResults?.training_details && globalSearchResults.training_details.length > 0 && (
+                    <div className="p-2">
+                      <div className="flex items-center justify-between mb-1">
+                        <span className="text-[10px] font-black text-pink-600 uppercase tracking-widest">Training Records</span>
+                      </div>
+                      <div className="grid grid-cols-1 gap-1">
+                        {globalSearchResults.training_details.map((t: any) => (
+                          <div
+                            key={t._id}
+                            onClick={() => handleResultClick('Training Records')}
+                            className="p-2.5 rounded-lg hover:bg-slate-50 flex items-center justify-between text-xs transition-colors border border-transparent hover:border-slate-150 cursor-pointer"
+                          >
+                            <div>
+                              <p className="font-semibold text-slate-800 text-sm">{t.name}</p>
+                              <p className="text-xs text-slate-500 mt-0.5">
+                                Training Record • Batch {t.batch_year || 'N/A'}
+                              </p>
+                              <p className="text-[10px] text-slate-400 mt-0.5">Reg No: {t.reg_no} • {t.department}</p>
+                            </div>
+                            <span className="px-1.5 py-0.5 rounded text-[9px] font-black bg-pink-50 text-pink-700 uppercase border border-pink-200">
+                              Training
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {(!globalSearchResults ||
+                    ((globalSearchResults.students?.length || 0) === 0 &&
+                      (globalSearchResults.companies?.length || 0) === 0 &&
+                      (globalSearchResults.placements?.length || 0) === 0 &&
+                      (globalSearchResults.hr_contacts?.length || 0) === 0 &&
+                      (globalSearchResults.training_details?.length || 0) === 0)) && (
+                    <div className="p-8 text-center text-slate-400">
+                      <p className="text-sm font-semibold">No results found</p>
+                      <p className="text-xs mt-1">Try adjusting your search query.</p>
+                    </div>
+                  )}
+                </>
               )}
             </div>
           </div>
@@ -502,7 +502,7 @@ export const Topbar: React.FC = () => {
               {years.map((y) => (
                 <option key={y} value={y}>{y} Batch</option>
               ))}
-              <option value="All">All Years</option>
+              <option value="all">All Years</option>
             </select>
           )}
 
@@ -557,7 +557,7 @@ export const Topbar: React.FC = () => {
           )}
         </div>
 
-        {/* User Card & Role Switcher */}
+        {/* User Card & Workspace Switcher */}
         {user && (
           <div className="relative">
             <button
@@ -567,7 +567,7 @@ export const Topbar: React.FC = () => {
               <img src={user.avatar} alt={user.name} className="h-8 w-8 rounded-full border border-slate-200 object-cover shadow-sm" />
               <div className="text-left hidden sm:block">
                 <p className="text-xs font-semibold text-slate-700 leading-tight">{user.name.split(' (')[0]}</p>
-                <p className="text-[10px] text-slate-400 leading-none capitalize">{user.role}</p>
+                <p className="text-[10px] text-slate-400 leading-none">{dashboardNames[user.role]}</p>
               </div>
               <ChevronDown className="h-4 w-4 text-slate-400" />
             </button>
@@ -579,7 +579,7 @@ export const Topbar: React.FC = () => {
                   <p className="text-[10px] text-slate-400 truncate">{user.email}</p>
                 </div>
                 <div className="py-1">
-                  <p className="px-4 py-1.5 text-[10px] font-bold text-slate-400 uppercase tracking-widest">Quick Role Switch</p>
+                  <p className="px-4 py-1.5 text-[10px] font-bold text-slate-400 uppercase tracking-widest">DASHBOARD NAVIGATION</p>
                   {(['overall', 'director', 'officer', 'training'] as UserRole[]).map((role) => (
                     <button
                       key={role}
@@ -590,7 +590,7 @@ export const Topbar: React.FC = () => {
                           : 'text-slate-600 hover:bg-slate-50'
                       }`}
                     >
-                      <span className="capitalize">{role === 'overall' ? 'Global Admin' : `${role} Dashboard`}</span>
+                      <span>{dashboardNames[role]}</span>
                       {user.role === role && <span className="h-1.5 w-1.5 rounded-full bg-blue-600" />}
                     </button>
                   ))}
@@ -600,6 +600,231 @@ export const Topbar: React.FC = () => {
           </div>
         )}
       </div>
+
+      {/* Student Profile Modal */}
+      {showStudentModal && selectedStudentRegNo && (
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[200] flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl overflow-hidden border border-slate-150 flex flex-col max-h-[90vh]">
+            {/* Header */}
+            <div className="p-6 bg-gradient-to-r from-blue-600 via-indigo-600 to-violet-600 text-white flex items-center justify-between">
+              <div>
+                <span className="text-[10px] font-bold tracking-widest uppercase text-blue-200">
+                  Student Profile Explorer
+                </span>
+                <h3 className="text-xl font-bold mt-1">
+                  {isProfileLoading ? 'Loading Profile...' : studentProfile?.student?.name || 'Student Details'}
+                </h3>
+              </div>
+              <button
+                onClick={() => {
+                  setShowStudentModal(false);
+                  setSelectedStudentRegNo(null);
+                }}
+                className="p-1.5 bg-white/10 hover:bg-white/20 rounded-lg transition-colors cursor-pointer text-white"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+
+            {/* Modal Content */}
+            <div className="flex-1 overflow-y-auto p-6 space-y-6 bg-slate-50/50">
+              {isProfileLoading ? (
+                <div className="py-16 text-center text-slate-400">
+                  <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-600 mb-3" />
+                  <p className="text-sm font-semibold">Retrieving full academic & placement logs...</p>
+                </div>
+              ) : profileError || !studentProfile?.student ? (
+                <div className="py-16 text-center text-rose-500">
+                  <p className="text-sm font-semibold">Failed to retrieve student profile details.</p>
+                  <p className="text-xs mt-1 text-slate-450">Please try again later or check connections.</p>
+                </div>
+              ) : (
+                <>
+                  {/* 1. Basic Information */}
+                  <div className="bg-white rounded-xl p-5 border border-slate-200/60 shadow-sm relative overflow-hidden">
+                    <div className="absolute top-0 left-0 w-1.5 h-full bg-blue-600" />
+                    <h4 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-4">
+                      Basic Information
+                    </h4>
+                    <div className="grid grid-cols-2 gap-x-6 gap-y-4 text-sm">
+                      <div>
+                        <p className="text-xs text-slate-400 font-medium">Student Name</p>
+                        <p className="font-bold text-slate-800 mt-0.5">{studentProfile.student.name}</p>
+                      </div>
+                      <div>
+                        <p className="text-xs text-slate-400 font-medium">Register Number</p>
+                        <p className="font-bold text-slate-800 mt-0.5">{studentProfile.student.reg_no}</p>
+                      </div>
+                      <div>
+                        <p className="text-xs text-slate-400 font-medium">Department</p>
+                        <p className="font-bold text-slate-800 mt-0.5">{studentProfile.student.department}</p>
+                      </div>
+                      <div>
+                        <p className="text-xs text-slate-400 font-medium">Batch Year</p>
+                        <p className="font-bold text-slate-800 mt-0.5">{studentProfile.student.batch_year}</p>
+                      </div>
+                      <div>
+                        <p className="text-xs text-slate-400 font-medium">CGPA</p>
+                        <p className="font-bold text-slate-800 mt-0.5 bg-blue-50 text-blue-700 px-2 py-0.5 rounded-md inline-block">
+                          {studentProfile.student.cgpa.toFixed(2)}
+                        </p>
+                      </div>
+                      <div>
+                        <p className="text-xs text-slate-400 font-medium">Arrears</p>
+                        <p className={`font-bold mt-0.5 px-2 py-0.5 rounded-md inline-block ${
+                          studentProfile.student.arrears > 0 
+                            ? 'bg-rose-50 text-rose-700 font-extrabold' 
+                            : 'bg-emerald-50 text-emerald-700'
+                        }`}>
+                          {studentProfile.student.arrears} Arrears
+                        </p>
+                      </div>
+                    </div>
+
+                    {/* Skills */}
+                    <div className="mt-4 pt-4 border-t border-slate-100">
+                      <p className="text-xs text-slate-400 font-medium mb-2">Technical Skills & Expertise</p>
+                      <div className="flex flex-wrap gap-1.5">
+                        {studentProfile.student.skills && studentProfile.student.skills.length > 0 ? (
+                          studentProfile.student.skills.map((skill: string) => (
+                            <span
+                              key={skill}
+                              className="px-2.5 py-1 bg-slate-100 text-slate-700 rounded-lg text-xs font-semibold border border-slate-200/50"
+                            >
+                              {skill}
+                            </span>
+                          ))
+                        ) : (
+                          <span className="text-xs text-slate-400 font-medium italic">No Skills Registry Available</span>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* 2. Placement Information */}
+                  <div className="bg-white rounded-xl p-5 border border-slate-200/60 shadow-sm relative overflow-hidden">
+                    <div className="absolute top-0 left-0 w-1.5 h-full bg-violet-600" />
+                    <h4 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-4">
+                      Placement Information
+                    </h4>
+                    {studentProfile.placement ? (
+                      <div className="grid grid-cols-2 gap-x-6 gap-y-4 text-sm">
+                        <div>
+                          <p className="text-xs text-slate-400 font-medium">Placement Status</p>
+                          <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-bold bg-emerald-50 text-emerald-700 border border-emerald-200/50 mt-1">
+                            <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
+                            {studentProfile.placement.placement_status || 'Placed'}
+                          </span>
+                        </div>
+                        <div>
+                          <p className="text-xs text-slate-400 font-medium">Recruiting Company</p>
+                          <p className="font-bold text-slate-800 mt-0.5">{studentProfile.placement.company}</p>
+                        </div>
+                        <div>
+                          <p className="text-xs text-slate-400 font-medium">Designation / Role</p>
+                          <p className="font-bold text-slate-800 mt-0.5">{studentProfile.placement.role || 'Associate Software Engineer'}</p>
+                        </div>
+                        <div>
+                          <p className="text-xs text-slate-400 font-medium">Offered Package</p>
+                          <p className="font-bold text-violet-750 mt-0.5 text-base">
+                            {studentProfile.placement.package} LPA
+                          </p>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="flex flex-col items-center justify-center py-4 text-center">
+                        <p className="text-slate-400 text-sm font-semibold">No Placement Record Available</p>
+                        <p className="text-xs text-slate-400 mt-0.5">The student has not completed placement reporting for this company drive.</p>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* 3. Training Information */}
+                  <div className="bg-white rounded-xl p-5 border border-slate-200/60 shadow-sm relative overflow-hidden">
+                    <div className="absolute top-0 left-0 w-1.5 h-full bg-pink-600" />
+                    <h4 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-4">
+                      Training Information
+                    </h4>
+                    {studentProfile.training ? (
+                      <div className="space-y-4">
+                        <div className="grid grid-cols-2 gap-x-6 gap-y-4 text-sm">
+                          <div>
+                            <p className="text-xs text-slate-400 font-medium">Aptitude Score</p>
+                            <div className="flex items-center gap-2 mt-1">
+                              <div className="flex-1 bg-slate-100 rounded-full h-2 overflow-hidden max-w-[100px]">
+                                <div className="bg-blue-500 h-full rounded-full" style={{ width: `${studentProfile.training.aptitude_score}%` }} />
+                              </div>
+                              <span className="font-bold text-slate-700">{studentProfile.training.aptitude_score}%</span>
+                            </div>
+                          </div>
+                          <div>
+                            <p className="text-xs text-slate-400 font-medium">Coding Score</p>
+                            <div className="flex items-center gap-2 mt-1">
+                              <div className="flex-1 bg-slate-100 rounded-full h-2 overflow-hidden max-w-[100px]">
+                                <div className="bg-emerald-500 h-full rounded-full" style={{ width: `${studentProfile.training.coding_score}%` }} />
+                              </div>
+                              <span className="font-bold text-slate-700">{studentProfile.training.coding_score}%</span>
+                            </div>
+                          </div>
+                          <div>
+                            <p className="text-xs text-slate-400 font-medium">Communication Score</p>
+                            <div className="flex items-center gap-2 mt-1">
+                              <div className="flex-1 bg-slate-100 rounded-full h-2 overflow-hidden max-w-[100px]">
+                                <div className="bg-amber-500 h-full rounded-full" style={{ width: `${studentProfile.training.communication_score}%` }} />
+                              </div>
+                              <span className="font-bold text-slate-700">{studentProfile.training.communication_score}%</span>
+                            </div>
+                          </div>
+                          <div>
+                            <p className="text-xs text-slate-400 font-medium">Mock Interview Score</p>
+                            <div className="flex items-center gap-2 mt-1">
+                              <div className="flex-1 bg-slate-100 rounded-full h-2 overflow-hidden max-w-[100px]">
+                                <div className="bg-purple-500 h-full rounded-full" style={{ width: `${studentProfile.training.mock_interview_score}%` }} />
+                              </div>
+                              <span className="font-bold text-slate-700">{studentProfile.training.mock_interview_score}%</span>
+                            </div>
+                          </div>
+                          <div>
+                            <p className="text-xs text-slate-400 font-medium">Attendance</p>
+                            <div className="flex items-center gap-2 mt-1">
+                              <div className="flex-1 bg-slate-100 rounded-full h-2 overflow-hidden max-w-[100px]">
+                                <div className="bg-pink-500 h-full rounded-full" style={{ width: `${studentProfile.training.attendance}%` }} />
+                              </div>
+                              <span className="font-bold text-slate-700">{studentProfile.training.attendance}%</span>
+                            </div>
+                          </div>
+                          <div>
+                            <p className="text-xs text-slate-400 font-medium">Readiness Score</p>
+                            <p className="font-black mt-0.5 text-base text-pink-600 bg-pink-50 px-2 py-0.5 rounded-md inline-block">
+                              {((studentProfile.training.aptitude_score * 0.25) +
+                                (studentProfile.training.coding_score * 0.35) +
+                                (studentProfile.training.communication_score * 0.20) +
+                                (studentProfile.training.mock_interview_score * 0.20)).toFixed(1)}%
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="flex flex-col items-center justify-center py-4 border border-dashed border-slate-200 rounded-xl bg-slate-50/50 text-center">
+                        <span className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">
+                          Training Details
+                        </span>
+                        <p className="text-emerald-600 text-xs font-black flex items-center gap-1">
+                          ✓ No Training Record Available
+                        </p>
+                        <p className="text-[10px] text-slate-400 mt-1 max-w-sm">
+                          Historical databases or specific batches may not carry active training metrics. This is a normal catalog state.
+                        </p>
+                      </div>
+                    )}
+                  </div>
+                </>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </header>
   );
 };
+

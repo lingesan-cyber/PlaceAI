@@ -16,12 +16,14 @@ const getPlacements = async (req, res, next) => {
 
     const filter = {};
     const batchYear = req.query.batch_year ?? req.query.year;
-    if (batchYear) {
+    if (batchYear && String(batchYear).trim().toLowerCase() !== 'all') {
       const numericYear = Number(batchYear);
-      filter.$or = [
-        { batch_year: numericYear },
-        { year: numericYear }
-      ];
+      if (!isNaN(numericYear)) {
+        filter.$or = [
+          { batch_year: numericYear },
+          { year: numericYear }
+        ];
+      }
     }
     if (req.query.department) {
       filter.department = req.query.department.trim().toUpperCase();

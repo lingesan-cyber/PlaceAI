@@ -50,9 +50,9 @@ export const useAuthStore = create<AuthState>()(
       user: null,
       token: null,
       isAuthenticated: false,
-      // Default to 'All' — Topbar will replace this with the latest year
+      // Default to empty string — Topbar will replace this with the latest year
       // once the /years API resolves. This means zero hardcoded years anywhere.
-      selectedYear: 'All',
+      selectedYear: '',
       login: (role, customEmail) => {
         const email = customEmail || roleEmails[role];
         const name = customEmail

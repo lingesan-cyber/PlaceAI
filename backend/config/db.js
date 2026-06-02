@@ -1,5 +1,6 @@
 const mongoose = require('mongoose');
 const HRContact = require('../models/HRContact');
+const TrainingDetail = require('../models/TrainingDetail');
 
 const connectDB = async () => {
   try {
@@ -54,6 +55,120 @@ const connectDB = async () => {
     } catch (err) {
       console.error('Error seeding HR contacts:', err.message);
     }
+
+    // Seed initial training details if none exist
+    try {
+      const trainingCount = await TrainingDetail.countDocuments();
+      if (trainingCount === 0) {
+        console.log('Seeding initial training details...');
+        await TrainingDetail.create([
+          {
+            reg_no: '1920100001',
+            name: 'Harsh Raj',
+            department: 'CSE',
+            aptitude_score: 82,
+            coding_score: 91,
+            communication_score: 75,
+            mock_interview_score: 80,
+            attendance: 92
+          },
+          {
+            reg_no: '1920100002',
+            name: 'Priya Sharma',
+            department: 'CSE',
+            aptitude_score: 90,
+            coding_score: 95,
+            communication_score: 85,
+            mock_interview_score: 90,
+            attendance: 95
+          },
+          {
+            reg_no: '1920100003',
+            name: 'Amit Verma',
+            department: 'ECE',
+            aptitude_score: 65,
+            coding_score: 55,
+            communication_score: 60,
+            mock_interview_score: 65,
+            attendance: 78
+          },
+          {
+            reg_no: '1920100004',
+            name: 'Rohan Das',
+            department: 'ME',
+            aptitude_score: 45,
+            coding_score: 40,
+            communication_score: 50,
+            mock_interview_score: 55,
+            attendance: 68
+          },
+          {
+            reg_no: '1920100005',
+            name: 'Sneha Reddy',
+            department: 'IT',
+            aptitude_score: 85,
+            coding_score: 80,
+            communication_score: 90,
+            mock_interview_score: 85,
+            attendance: 90
+          },
+          {
+            reg_no: '1920100006',
+            name: 'Vikram Singh',
+            department: 'CE',
+            aptitude_score: 58,
+            coding_score: 48,
+            communication_score: 62,
+            mock_interview_score: 58,
+            attendance: 72
+          },
+          {
+            reg_no: '1920100007',
+            name: 'Ananya Sen',
+            department: 'IT',
+            aptitude_score: 88,
+            coding_score: 92,
+            communication_score: 80,
+            mock_interview_score: 88,
+            attendance: 94
+          },
+          {
+            reg_no: '1920100008',
+            name: 'Arjun Nair',
+            department: 'ECE',
+            aptitude_score: 72,
+            coding_score: 75,
+            communication_score: 70,
+            mock_interview_score: 75,
+            attendance: 84
+          },
+          {
+            reg_no: '1920100009',
+            name: 'Divya Patel',
+            department: 'CSE',
+            aptitude_score: 80,
+            coding_score: 85,
+            communication_score: 82,
+            mock_interview_score: 80,
+            attendance: 88
+          },
+          {
+            reg_no: '1920100010',
+            name: 'Manoj Kumar',
+            department: 'ME',
+            aptitude_score: 62,
+            coding_score: 58,
+            communication_score: 65,
+            mock_interview_score: 60,
+            attendance: 80
+          }
+        ]);
+        console.log('Training details seeded successfully!');
+      }
+    } catch (err) {
+      console.error('Error seeding training details:', err.message);
+    }
+
   } catch (error) {
     console.error(`Database Connection Error: ${error.message}`);
     process.exit(1);

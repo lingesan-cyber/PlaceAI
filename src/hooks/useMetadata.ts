@@ -64,7 +64,7 @@ export const useYearsQuery = () => {
   }, [query.data, initializeYears]);
 
   const years: string[] = storeYears.length > 0 ? storeYears : (query.data?.active ?? []);
-  const latestYear: string = years.length > 0 ? years[0] : 'All';
+  const latestYear: string = years.length > 0 ? years[0] : 'all';
 
   return { ...query, years, latestYear };
 };

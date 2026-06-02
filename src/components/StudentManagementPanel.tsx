@@ -77,7 +77,7 @@ export const StudentManagementPanel: React.FC<StudentManagementPanelProps> = ({ 
     queryFn: async () => {
       const response = await apiClient.get('/students?limit=500');
       const studentsList = response.data?.data?.students || [];
-      const filteredStudents = selectedYear === 'All'
+      const filteredStudents = selectedYear.toLowerCase() === 'all'
         ? studentsList
         : studentsList.filter((student: StudentRecord) => normalizeBatchYear(student) === String(selectedYear));
 

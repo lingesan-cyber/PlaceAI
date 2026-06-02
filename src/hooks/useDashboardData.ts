@@ -66,11 +66,12 @@ export const useDashboardData = (year: string) => {
       const rawPlacements = Array.isArray(placementPayload) ? placementPayload : (placementPayload?.placements || []);
       const rawCompanies = companyRes.data?.data || [];
 
-      const selectedStudents = year === 'All'
+      const isAllYears = !year || year.toLowerCase() === 'all';
+      const selectedStudents = isAllYears
         ? rawStudents
         : rawStudents.filter((student: any) => normalizeBatchYear(student) === String(year));
 
-      const selectedPlacements = year === 'All'
+      const selectedPlacements = isAllYears
         ? rawPlacements
         : rawPlacements.filter((placement: any) => normalizeBatchYear(placement) === String(year));
 
@@ -116,10 +117,16 @@ export const useDashboardData = (year: string) => {
       ).sort();
 
       const studentCountByBatch = new Map<string, number>();
+      const studentCountByBatchDept = new Map<string, number>();
       rawStudents.forEach((student: any) => {
         const batchYear = normalizeBatchYear(student);
+        const department = normalizeDepartment(student);
         if (!batchYear) return;
         studentCountByBatch.set(batchYear, (studentCountByBatch.get(batchYear) || 0) + 1);
+        if (department) {
+          const key = `${batchYear}::${department}`;
+          studentCountByBatchDept.set(key, (studentCountByBatchDept.get(key) || 0) + 1);
+        }
       });
 
       const placementGroups = new Map<string, { count: number; packageValues: number[] }>();
@@ -144,9 +151,9 @@ export const useDashboardData = (year: string) => {
 
         batchYears.forEach((batchYear) => {
           const group = placementGroups.get(`${batchYear}::${department}`);
-          const batchTotal = studentCountByBatch.get(batchYear) || 0;
-          const percentage = batchTotal > 0
-            ? parseFloat((((group?.count || 0) / batchTotal) * 100).toFixed(1))
+          const deptBatchTotal = studentCountByBatchDept.get(`${batchYear}::${department}`) || 0;
+          const percentage = deptBatchTotal > 0
+            ? parseFloat((((group?.count || 0) / deptBatchTotal) * 100).toFixed(1))
             : 0;
           row[`rate${batchYear}`] = percentage;
         });
@@ -162,14 +169,41 @@ export const useDashboardData = (year: string) => {
 
           departments.forEach((department) => {
             const group = placementGroups.get(`${batchYear}::${department}`);
-            const batchTotal = studentCountByBatch.get(batchYear) || 0;
-            row[department] = batchTotal > 0
-              ? parseFloat((((group?.count || 0) / batchTotal) * 100).toFixed(1))
+            const deptBatchTotal = studentCountByBatchDept.get(`${batchYear}::${department}`) || 0;
+            row[department] = deptBatchTotal > 0
+              ? parseFloat((((group?.count || 0) / deptBatchTotal) * 100).toFixed(1))
               : 0;
           });
 
           return row;
         });
+
+      // Console Verification logs for comparison and growth widgets
+      console.log('Chart Data (Multi-Year Comparison):');
+      departments.forEach((department) => {
+        batchYears.forEach((batchYear) => {
+          const group = placementGroups.get(`${batchYear}::${department}`);
+          const deptBatchTotal = studentCountByBatchDept.get(`${batchYear}::${department}`) || 0;
+          const percentage = deptBatchTotal > 0
+            ? parseFloat((((group?.count || 0) / deptBatchTotal) * 100).toFixed(1))
+            : 0;
+          console.log({ year: batchYear, department, placementPercentage: percentage });
+        });
+      });
+
+      console.log('Growth Data (Year-on-Year Growth):');
+      const growthLogs: { year: string; department: string; placementRate: number }[] = [];
+      batchYears.forEach((batchYear) => {
+        departments.forEach((department) => {
+          const group = placementGroups.get(`${batchYear}::${department}`);
+          const deptBatchTotal = studentCountByBatchDept.get(`${batchYear}::${department}`) || 0;
+          const percentage = deptBatchTotal > 0
+            ? parseFloat((((group?.count || 0) / deptBatchTotal) * 100).toFixed(1))
+            : 0;
+          growthLogs.push({ year: batchYear, department, placementRate: percentage });
+        });
+      });
+      console.log(JSON.stringify(growthLogs, null, 2));
 
       const statusCounts: Record<string, number> = {};
       selectedPlacements.forEach((placement: any) => {
@@ -191,6 +225,15 @@ export const useDashboardData = (year: string) => {
         { name: 'Interviewed', value: interviewedCount, percentage: pct(interviewedCount) },
         { name: 'Placed', value: placedCount, percentage: pct(placedCount) }
       ];
+
+      // Console Verification logs for funnel widget
+      console.log('Pipeline Data:', {
+        eligibleCount: totalStudents,
+        appliedCount,
+        shortlistedCount,
+        interviewedCount,
+        placedCount
+      });
 
       const companySelectionsByName = new Map<string, number>();
       selectedPlacements.forEach((placement: any) => {

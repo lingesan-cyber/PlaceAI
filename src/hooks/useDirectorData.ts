@@ -178,11 +178,12 @@ export const useDirectorData = (year: string) => {
       const rawPlacements = Array.isArray(placementPayload) ? placementPayload : (placementPayload?.placements || []);
       const rawCompanies = companiesRes.data?.data || [];
 
-      const selectedStudents = year === 'All'
+      const isAllYears = !year || year.toLowerCase() === 'all';
+      const selectedStudents = isAllYears
         ? rawStudents
         : rawStudents.filter((student: any) => normalizeBatchYear(student) === String(year));
 
-      const selectedPlacements = year === 'All'
+      const selectedPlacements = isAllYears
         ? rawPlacements
         : rawPlacements.filter((placement: any) => normalizeBatchYear(placement) === String(year));
 
@@ -234,7 +235,8 @@ export const useDirectorYearlyAnalysis = (year: string) => {
       const response = await apiClient.get('/placements?limit=5000');
       const payload = response.data?.data;
       const placements = Array.isArray(payload) ? payload : (payload?.placements || []);
-      const filteredPlacements = year === 'All'
+      const isAllYears = !year || year.toLowerCase() === 'all';
+      const filteredPlacements = isAllYears
         ? placements
         : placements.filter((placement: any) => normalizeBatchYear(placement) === String(year));
 

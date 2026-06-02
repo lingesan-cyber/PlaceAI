@@ -36,13 +36,8 @@ const validatePlacementRecord = (record) => {
   }
 
   // Validate department
-  if (!record.department || typeof record.department !== 'string') {
-    errors.push('department must be a string');
-  } else {
-    const deptUpper = record.department.trim().toUpperCase();
-    if (!DEPARTMENTS.includes(deptUpper)) {
-      errors.push(`department '${record.department}' is invalid. Must be one of: ${DEPARTMENTS.join(', ')}`);
-    }
+  if (!record.department || typeof record.department !== 'string' || record.department.trim() === '') {
+    errors.push('department must be a non-empty string');
   }
 
   // Validate optional package field

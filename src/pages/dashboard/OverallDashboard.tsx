@@ -41,13 +41,17 @@ import {
 } from '@tanstack/react-table';
 import type { ColumnDef } from '@tanstack/react-table';
 import * as XLSX from 'xlsx';
+import { apiClient } from '../../lib/apiClient';
 
 export const OverallDashboard: React.FC = () => {
   const { selectedYear, setSelectedYear, compareYears, isCompareMode } = useAuthStore();
+  const [showToast, setShowToast] = useState(false);
+  const [toastMessage, setToastMessage] = useState('');
+  const [isExporting, setIsExporting] = useState(false);
 
   // In compare mode, fetch data for 'All' years (which includes all year series);
   // filtering to compareYears happens below in derived memos.
-  const effectiveYear = isCompareMode ? 'All' : selectedYear;
+  const effectiveYear = isCompareMode ? 'all' : selectedYear;
   const { data, isLoading, error } = useDashboardData(effectiveYear);
 
   // Seed store from API (runs once); then read from store for instant updates.
@@ -150,54 +154,190 @@ export const OverallDashboard: React.FC = () => {
     }
   });
 
-  // Export current dashboard records to XLSX file
-  const handleExportToExcel = () => {
-    if (!data) return;
+  // Export complete academic and recruitment logs to a professional XLSX report
+  const handleExportToExcel = async () => {
+    if (isExporting) return;
+    setIsExporting(true);
 
-    const wb = XLSX.utils.book_new();
+    try {
+      const yearStr = selectedYear;
+      const numericYear = (yearStr && yearStr.toLowerCase() !== 'all') ? Number(yearStr) : null;
 
-    // 1. Stats overview sheet
-    const summaryRows = [
-      {
-        "Academic Year": data.year,
-        "Total Registered Students": data.stats.totalStudents,
-        "Placed Students": data.stats.placedStudents,
-        "Pending Students": data.stats.pendingStudents,
-        "Companies Visited": data.stats.companiesVisited,
-        "Placement Rate (%)": data.stats.placementRate,
-        "Average Package": data.stats.avgPackage,
-        "Highest Package": data.stats.highestPackage,
-      }
-    ];
-    const wsSummary = XLSX.utils.json_to_sheet(summaryRows);
-    XLSX.utils.book_append_sheet(wb, wsSummary, "Summary Statistics");
+      // 1. Fetch all datasets from the backend in parallel for comprehensive reporting
+      const [studentsRes, placementsRes, companiesRes, hrRes, trainingRes] = await Promise.all([
+        apiClient.get('/students?limit=10000'),
+        apiClient.get('/placements?limit=10000'),
+        apiClient.get('/companies'),
+        apiClient.get('/hr-contacts?year=all'),
+        apiClient.get('/training-details')
+      ]);
 
-    // 2. Department rates sheet — columns derived from data keys, never hardcoded.
-    // Adding 2027 data auto-creates a "2027 Rate (%)" column in the Excel file.
-    const comparisonRows = data.comparison.map((d: any) => {
-      const row: Record<string, any> = { Department: d.name };
-      rateKeys.forEach((key) => {
-        const year = key.replace('rate', '');
-        row[`${year} Rate (%)`] = d[key];
+      const rawStudents = studentsRes.data?.data?.students || [];
+      const rawPlacements = placementsRes.data?.data?.placements || [];
+      const rawCompanies = companiesRes.data?.data || [];
+      const rawHrContacts = hrRes.data?.data || [];
+      const rawTrainingDetails = trainingRes.data?.data || [];
+
+      // 2. Filter datasets by selected batch year (or all years if 'All')
+      const filteredStudents = numericYear
+        ? rawStudents.filter((s: any) => s.batch_year === numericYear)
+        : rawStudents;
+
+      const filteredPlacements = numericYear
+        ? rawPlacements.filter((p: any) => (p.batch_year === numericYear || p.year === numericYear))
+        : rawPlacements;
+
+      const filteredCompanies = numericYear
+        ? rawCompanies.filter((c: any) => c.drive_date && new Date(c.drive_date).getFullYear() === numericYear)
+        : rawCompanies;
+
+      const filteredHrContacts = numericYear
+        ? rawHrContacts.filter((h: any) => h.batch_year === numericYear)
+        : rawHrContacts;
+
+      // Map training records strictly against the current active batch's register numbers
+      const studentRegs = new Set(filteredStudents.map((s: any) => s.reg_no));
+      const filteredTraining = rawTrainingDetails.filter((t: any) => studentRegs.has(t.reg_no));
+
+      // Calculate statistics for Sheet 1
+      const totalStudentsCount = filteredStudents.length;
+      const placedCount = filteredStudents.filter((s: any) => s.placement_status === 'Placed').length;
+      const unplacedCount = totalStudentsCount - placedCount;
+      const rateStr = totalStudentsCount > 0 ? ((placedCount / totalStudentsCount) * 100).toFixed(2) + '%' : '0.00%';
+
+      const packages = filteredPlacements.map((p: any) => Number(p.package) || 0).filter(p => p > 0);
+      const avgPackageStr = packages.length > 0 ? (packages.reduce((sum, p) => sum + p, 0) / packages.length).toFixed(2) + ' LPA' : '0.00 LPA';
+      const highestPackageStr = packages.length > 0 ? Math.max(...packages).toFixed(2) + ' LPA' : '0.00 LPA';
+
+      const wb = XLSX.utils.book_new();
+
+      const autoWidths = (dataRows: any[]) => {
+        if (dataRows.length === 0) return [{ wch: 25 }];
+        const keys = Object.keys(dataRows[0]);
+        return keys.map(key => {
+          let maxLen = key.length;
+          dataRows.forEach(row => {
+            const val = row[key];
+            if (val !== undefined && val !== null) {
+              maxLen = Math.max(maxLen, String(val).length);
+            }
+          });
+          return { wch: maxLen + 4 }; // Add padding for header readability
+        });
+      };
+
+      const createSheetWithRecords = (sheetName: string, dataArray: any[], mapper: (item: any) => any) => {
+        let ws;
+        if (dataArray.length === 0) {
+          const emptyRows = [{ "Status": "No Records Available" }];
+          ws = XLSX.utils.json_to_sheet(emptyRows);
+          ws['!cols'] = [{ wch: 25 }];
+        } else {
+          const rows = dataArray.map(mapper);
+          ws = XLSX.utils.json_to_sheet(rows);
+          ws['!cols'] = autoWidths(rows);
+          ws['!views'] = [{
+            state: 'frozen',
+            xSplit: 0,
+            ySplit: 1,
+            topLeftCell: 'A2',
+            activePane: 'bottomLeft'
+          }];
+        }
+        XLSX.utils.book_append_sheet(wb, ws, sheetName);
+      };
+
+      // Sheet 1: Summary Statistics (always populated)
+      const summaryRows = [{
+        "Batch Year": (yearStr && yearStr.toLowerCase() !== 'all') ? `${yearStr} Batch` : 'All Years',
+        "Total Students": totalStudentsCount,
+        "Placed Students": placedCount,
+        "Unplaced Students": unplacedCount,
+        "Placement Rate": rateStr,
+        "Average Package": avgPackageStr,
+        "Highest Package": highestPackageStr,
+        "Companies Visited": filteredCompanies.length
+      }];
+      const wsSummary = XLSX.utils.json_to_sheet(summaryRows);
+      wsSummary['!cols'] = autoWidths(summaryRows);
+      wsSummary['!views'] = [{
+        state: 'frozen',
+        xSplit: 0,
+        ySplit: 1,
+        topLeftCell: 'A2',
+        activePane: 'bottomLeft'
+      }];
+      XLSX.utils.book_append_sheet(wb, wsSummary, "Summary");
+
+      // Sheet 2: Students
+      createSheetWithRecords("Students", filteredStudents, (s: any) => ({
+        "Reg No": s.reg_no,
+        "Name": s.name,
+        "Department": s.department,
+        "CGPA": s.cgpa,
+        "Arrears": s.arrears,
+        "Skills": s.skills?.join(', ') || '',
+        "Placement Status": s.placement_status
+      }));
+
+      // Sheet 3: Placements
+      createSheetWithRecords("Placements", filteredPlacements, (p: any) => ({
+        "Reg No": p.reg_no,
+        "Student Name": p.name,
+        "Company": p.company,
+        "Role": p.role || 'Associate Software Engineer',
+        "Package": `${p.package} LPA`,
+        "Placement Status": p.placement_status || 'Placed'
+      }));
+
+      // Sheet 4: Companies
+      createSheetWithRecords("Companies", filteredCompanies, (c: any) => ({
+        "Company Name": c.company_name,
+        "Role Offered": c.role || 'N/A',
+        "Package": `${c.package} LPA`,
+        "Drive Date": c.drive_date ? new Date(c.drive_date).toISOString().split('T')[0] : 'N/A',
+        "Status": c.status
+      }));
+
+      // Sheet 5: HR Contacts
+      createSheetWithRecords("HR Contacts", filteredHrContacts, (h: any) => ({
+        "HR Name": h.hr_name,
+        "Company": h.company_name,
+        "Email": h.email,
+        "Phone": h.phone || 'N/A',
+        "Notes": h.notes || ''
+      }));
+
+      // Sheet 6: Training Records
+      createSheetWithRecords("Training Records", filteredTraining, (t: any) => {
+        const readiness = (t.aptitude_score * 0.25) + (t.coding_score * 0.35) + (t.communication_score * 0.20) + (t.mock_interview_score * 0.20);
+        return {
+          "Reg No": t.reg_no,
+          "Name": t.name,
+          "Aptitude Score": t.aptitude_score,
+          "Coding Score": t.coding_score,
+          "Communication Score": t.communication_score,
+          "Mock Interview Score": t.mock_interview_score,
+          "Attendance": t.attendance,
+          "Readiness Score": `${readiness.toFixed(1)}%`
+        };
       });
-      return row;
-    });
-    const wsComparison = XLSX.utils.json_to_sheet(comparisonRows);
-    XLSX.utils.book_append_sheet(wb, wsComparison, "Department Comparison");
 
-    // 3. Recruiters list sheet
-    const companyRows = data.companies.map((c: any) => ({
-      "Company Name": c.name,
-      "Drive Date": c.driveDate,
-      "Package Offer": c.packageOffer,
-      "Selections Count": c.selections,
-      "Active Status": c.status,
-    }));
-    const wsCompanies = XLSX.utils.json_to_sheet(companyRows);
-    XLSX.utils.book_append_sheet(wb, wsCompanies, "Company Placements");
+      // Save workbook with exact name structure
+      XLSX.writeFile(wb, `Placement_Report_${yearStr}.xlsx`);
 
-    // Save report
-    XLSX.writeFile(wb, `PlaceAI_Overall_Report_${data.year.replace(' ', '_')}.xlsx`);
+      // Trigger custom toast notification
+      setToastMessage(`✓ Placement_Report_${yearStr}.xlsx downloaded successfully!`);
+      setShowToast(true);
+      setTimeout(() => setShowToast(false), 5000);
+    } catch (err: any) {
+      console.error("Failed to generate excel export:", err);
+      setToastMessage("✕ Failed to export placement report. Please check connections.");
+      setShowToast(true);
+      setTimeout(() => setShowToast(false), 5000);
+    } finally {
+      setIsExporting(false);
+    }
   };
 
   // Funnel color palette
@@ -256,7 +396,7 @@ export const OverallDashboard: React.FC = () => {
                 {years.map((y) => (
                   <option key={y} value={y}>{y} Batch</option>
                 ))}
-                <option value="All">All Years</option>
+                <option value="all">All Years</option>
               </select>
             )}
           </div>
@@ -556,6 +696,20 @@ export const OverallDashboard: React.FC = () => {
           </div>
         )}
       </div>
+
+      {/* Toast Notification */}
+      {showToast && (
+        <div className="fixed bottom-5 right-5 bg-slate-900 text-white px-5 py-3.5 rounded-xl shadow-2xl border border-slate-800 flex items-center gap-3 z-[200]">
+          <div className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse" />
+          <p className="text-xs font-semibold">{toastMessage}</p>
+          <button 
+            onClick={() => setShowToast(false)} 
+            className="text-slate-400 hover:text-white ml-2 transition-colors cursor-pointer text-xs"
+          >
+            ✕
+          </button>
+        </div>
+      )}
     </div>
   );
 };

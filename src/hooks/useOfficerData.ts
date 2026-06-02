@@ -19,7 +19,8 @@ const mapPlacementStage = (status: any): string => {
 };
 
 const getBatchCompanyNames = (placements: any[], year: string): Set<string> => {
-  if (year === 'All') return new Set<string>();
+  const isAllYears = !year || year.toLowerCase() === 'all';
+  if (isAllYears) return new Set<string>();
   return new Set(
     placements
       .filter((placement: any) => normalizeBatchYear(placement) === year)
@@ -36,7 +37,8 @@ export const usePlacementsQuery = (year: string) => {
       const payload = response.data?.data;
       const placements = Array.isArray(payload) ? payload : (payload?.placements || []);
 
-      const filteredPlacements = year === 'All'
+      const isAllYears = !year || year.toLowerCase() === 'all';
+      const filteredPlacements = isAllYears
         ? placements
         : placements.filter((placement: any) => normalizeBatchYear(placement) === String(year));
 
@@ -76,7 +78,8 @@ export const useCompaniesQuery = (year: string) => {
       const placements = Array.isArray(placementsPayload) ? placementsPayload : (placementsPayload?.placements || []);
       const allowedCompanyNames = getBatchCompanyNames(placements, year);
 
-      const filteredCompanies = year === 'All'
+      const isAllYears = !year || year.toLowerCase() === 'all';
+      const filteredCompanies = isAllYears
         ? companies
         : companies.filter((company: any) => allowedCompanyNames.has(String(company.company_name ?? '').trim()));
 
@@ -188,7 +191,8 @@ export const useDrivesQuery = (year: string) => {
       const placementsPayload = placementsRes.data?.data;
       const placements = Array.isArray(placementsPayload) ? placementsPayload : (placementsPayload?.placements || []);
       const allowedCompanyNames = getBatchCompanyNames(placements, year);
-      const filteredCompanies = year === 'All'
+      const isAllYears = !year || year.toLowerCase() === 'all';
+      const filteredCompanies = isAllYears
         ? companies
         : companies.filter((company: any) => allowedCompanyNames.has(String(company.company_name ?? '').trim()));
 
@@ -223,7 +227,8 @@ export const useStudentFilterQuery = (
       const response = await apiClient.get('/students?limit=5000');
       const payload = response.data?.data;
       const students = Array.isArray(payload) ? payload : (payload?.students || []);
-      const filteredStudents = year === 'All'
+      const isAllYears = !year || year.toLowerCase() === 'all';
+      const filteredStudents = isAllYears
         ? students
         : students.filter((student: any) => normalizeBatchYear(student) === String(year));
 

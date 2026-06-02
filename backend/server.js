@@ -14,6 +14,9 @@ const yearRoutes = require('./routes/yearRoutes');
 const analyticsRoutes = require('./routes/analyticsRoutes');
 const uploadRoutes = require('./routes/uploadRoutes');
 const hrContactRoutes = require('./routes/hrContactRoutes');
+const trainingDetailRoutes = require('./routes/trainingDetailRoutes');
+const searchRoutes = require('./routes/searchRoutes');
+const departmentRoutes = require('./routes/departmentRoutes');
 
 // Load environment configurations
 dotenv.config();
@@ -50,6 +53,9 @@ app.use('/api/years', yearRoutes);
 app.use('/api/analytics', analyticsRoutes);
 app.use('/api/upload', uploadRoutes);
 app.use('/api/hr-contacts', hrContactRoutes);
+app.use('/api/training-details', trainingDetailRoutes);
+app.use('/api/search', searchRoutes);
+app.use('/api/departments', departmentRoutes);
 
 // Unmatched Route Catchment
 app.use(notFound);

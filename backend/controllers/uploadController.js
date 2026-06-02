@@ -1,124 +1,299 @@
 const fs = require('fs');
 const xlsx = require('xlsx');
+const Student = require('../models/Student');
+const Company = require('../models/Company');
 const Placement = require('../models/Placement');
-const { validatePlacementRecord } = require('../utils/validator');
+const HRContact = require('../models/HRContact');
+const Department = require('../models/Department');
 
 /**
- * Common processor for parsed placement arrays
+ * Common master distribution engine for parsed arrays
  * @param {Array} records - Array of raw parsed records
- * @returns {Object} Statistics summary
+ * @param {String} policy - Conflict resolution: 'skip' or 'overwrite'
+ * @returns {Object} Relational import summary report stats
  */
-const processBulkPlacements = async (records) => {
-  let importedCount = 0;
-  let duplicateCount = 0;
-  let invalidCount = 0;
-
-  const validRecordsToInsert = [];
-  const processedBatchKeys = new Set();
-
-  // 1. Gather all unique years from this upload to query DB once
-  const years = [...new Set(records.map(r => Number(r.year)).filter(y => !isNaN(y) && y >= 2000))];
-
-  // 2. Fetch existing records for these years to build in-memory duplicate checking keys
-  const existingRecords = await Placement.find({ year: { $in: years } }, 'reg_no year company');
-  const existingKeys = new Set(
-    existingRecords.map(r => `${String(r.reg_no).trim().toLowerCase()}_${r.year}_${String(r.company).trim().toLowerCase()}`)
-  );
-
-  // 3. Loop and validate each row
-  for (const row of records) {
-    // Basic normalization of fields
-    const normalizedRow = {
-      sno: row.sno,
-      name: row.name,
-      reg_no: row.reg_no,
-      company: row.company,
-      year: row.year,
-      department: row.department,
-      package: row.package,
-      placement_status: row.placement_status
-    };
-
-    // Run custom validator utility
-    const validation = validatePlacementRecord(normalizedRow);
-    if (!validation.isValid) {
-      invalidCount++;
-      continue;
-    }
-
-    // Build compound key check: reg_no + year + company (lowercased & trimmed)
-    const regNoStr = String(normalizedRow.reg_no).trim().toLowerCase();
-    const companyStr = String(normalizedRow.company).trim().toLowerCase();
-    const compoundKey = `${regNoStr}_${Number(normalizedRow.year)}_${companyStr}`;
-
-    // Verify database constraint and current upload block double submissions
-    if (existingKeys.has(compoundKey) || processedBatchKeys.has(compoundKey)) {
-      duplicateCount++;
-      continue;
-    }
-
-    processedBatchKeys.add(compoundKey);
-    validRecordsToInsert.push({
-      sno: Number(normalizedRow.sno),
-      name: String(normalizedRow.name).trim(),
-      reg_no: String(normalizedRow.reg_no).trim(),
-      company: String(normalizedRow.company).trim(),
-      year: Number(normalizedRow.year),
-      department: String(normalizedRow.department).trim().toUpperCase(),
-      package: Number(normalizedRow.package) || 0,
-      placement_status: normalizedRow.placement_status || 'Placed'
-    });
-  }
-
-  // 4. Batch insert valid entries
-  if (validRecordsToInsert.length > 0) {
-    await Placement.insertMany(validRecordsToInsert, { ordered: false });
-    importedCount = validRecordsToInsert.length;
-  }
-
-  return {
-    importedRecords: importedCount,
-    duplicateRecords: duplicateCount,
-    invalidRecords: invalidCount
+const processBulkMasterUpload = async (records, policy = 'skip') => {
+  const stats = {
+    studentsInserted: 0,
+    studentsUpdated: 0,
+    companiesInserted: 0,
+    companiesUpdated: 0,
+    placementsInserted: 0,
+    placementsUpdated: 0,
+    hrInserted: 0,
+    hrUpdated: 0,
+    invalidRecords: 0,
+    duplicateRecords: 0
   };
+
+  // Pre-fetch current max placements serial number (sno) to increment sequentially
+  let currentMaxSno = 0;
+  try {
+    const maxPlacement = await Placement.findOne({}).sort({ sno: -1 }).select('sno');
+    if (maxPlacement && maxPlacement.sno) {
+      currentMaxSno = Number(maxPlacement.sno);
+    }
+  } catch (err) {
+    console.error('Error fetching max placement serial number:', err.message);
+  }
+
+  // Iterate over each record in bulk
+  for (const row of records) {
+    // 1. Normalize core student fields
+    const reg_no = row.reg_no ? String(row.reg_no).trim() : '';
+    const student_name = row.student_name || row.name ? String(row.student_name || row.name).trim() : '';
+    const department = row.department || row.dept ? String(row.department || row.dept).trim().toUpperCase() : '';
+    const section = row.section ? String(row.section).trim().toUpperCase() : '';
+    const batch_year = Number(row.batch_year || row.year);
+    const cgpa = row.cgpa !== undefined ? Number(row.cgpa) : NaN;
+    const arrears = row.arrears !== undefined ? Number(row.arrears) : NaN;
+
+    // Dynamically seed/create the department if it doesn't exist in our dynamic collections
+    if (department) {
+      try {
+        const deptExists = await Department.findOne({ department_code: department });
+        if (!deptExists) {
+          await Department.create({
+            department_code: department,
+            department_name: department,
+            active: true
+          });
+          console.log(`[Auto-Department] Created new department: ${department}`);
+        }
+      } catch (deptErr) {
+        console.error(`Failed to auto-create department: ${department}`, deptErr.message);
+      }
+    }
+
+    // Normalizing skills
+    let skillsArray = [];
+    if (row.skills) {
+      if (Array.isArray(row.skills)) {
+        skillsArray = row.skills.map(s => String(s).trim()).filter(Boolean);
+      } else {
+        skillsArray = String(row.skills).split(',').map(s => s.trim()).filter(Boolean);
+      }
+    }
+
+    // Core validation checks (Required student records)
+    if (!reg_no || !student_name || !department || isNaN(batch_year) || batch_year < 2000) {
+      stats.invalidRecords++;
+      continue;
+    }
+
+    if (isNaN(cgpa) || cgpa < 0 || cgpa > 10 || isNaN(arrears) || arrears < 0) {
+      stats.invalidRecords++;
+      continue;
+    }
+
+    // Normalize optional relational entity fields
+    const company_name = row.company_name || row.company ? String(row.company_name || row.company).trim() : '';
+    const role = row.role ? String(row.role).trim() : '';
+    const packageVal = row.package !== undefined ? Number(row.package) : NaN;
+    const placement_status = row.placement_status ? String(row.placement_status).trim() : '';
+    const drive_date = row.drive_date ? new Date(row.drive_date) : null;
+    const hr_name = row.hr_name ? String(row.hr_name).trim() : '';
+    const hr_email = row.hr_email || row.email ? String(row.hr_email || row.email).trim() : '';
+    const hr_phone = row.hr_phone || row.phone ? String(row.hr_phone || row.phone).trim() : '';
+
+    // Verify optional entity validation constraints
+    let isRowInvalid = false;
+    if (company_name) {
+      if (row.package !== undefined && (isNaN(packageVal) || packageVal <= 0)) {
+        isRowInvalid = true;
+      }
+      if (drive_date && isNaN(drive_date.getTime())) {
+        isRowInvalid = true;
+      }
+      if (hr_email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(hr_email)) {
+        isRowInvalid = true;
+      }
+    }
+
+    if (isRowInvalid) {
+      stats.invalidRecords++;
+      continue;
+    }
+
+    // ─── A. PROCESS STUDENTS ───
+    try {
+      const existingStudent = await Student.findOne({ reg_no });
+      const studentPayload = {
+        reg_no,
+        name: student_name,
+        department,
+        section,
+        batch_year,
+        cgpa,
+        arrears,
+        skills: skillsArray,
+        placement_status: placement_status || 'Applied'
+      };
+
+      if (existingStudent) {
+        if (policy === 'overwrite') {
+          await Student.findByIdAndUpdate(existingStudent._id, studentPayload, { runValidators: true });
+          stats.studentsUpdated++;
+        } else {
+          stats.duplicateRecords++;
+        }
+      } else {
+        await Student.create(studentPayload);
+        stats.studentsInserted++;
+      }
+    } catch (err) {
+      console.error(`Failed to process Student record ${reg_no}:`, err.message);
+      stats.invalidRecords++;
+      continue; // Skip other entities for this row if core student fails
+    }
+
+    // ─── B. PROCESS COMPANIES ───
+    if (company_name) {
+      try {
+        const existingCompany = await Company.findOne({ company_name });
+        const companyPayload = {
+          company_name,
+          role: role || 'Campus Drive',
+          package: !isNaN(packageVal) ? packageVal : 0,
+          drive_date: drive_date || new Date(),
+          status: 'Active'
+        };
+
+        if (existingCompany) {
+          if (policy === 'overwrite') {
+            await Company.findByIdAndUpdate(existingCompany._id, companyPayload, { runValidators: true });
+            stats.companiesUpdated++;
+          } else {
+            stats.duplicateRecords++;
+          }
+        } else {
+          await Company.create(companyPayload);
+          stats.companiesInserted++;
+        }
+      } catch (err) {
+        console.error(`Failed to process Company record ${company_name}:`, err.message);
+      }
+    }
+
+    // ─── C. PROCESS PLACEMENTS ───
+    if (company_name && placement_status) {
+      try {
+        const existingPlacement = await Placement.findOne({
+          reg_no,
+          company: company_name
+        });
+
+        if (existingPlacement) {
+          if (policy === 'overwrite') {
+            await Placement.findByIdAndUpdate(existingPlacement._id, {
+              name: student_name,
+              department,
+              year: batch_year,
+              batch_year,
+              package: !isNaN(packageVal) ? packageVal : 0,
+              placement_status,
+              role
+            }, { runValidators: true });
+            stats.placementsUpdated++;
+          } else {
+            stats.duplicateRecords++;
+          }
+        } else {
+          currentMaxSno++;
+          await Placement.create({
+            sno: currentMaxSno,
+            name: student_name,
+            reg_no,
+            company: company_name,
+            year: batch_year,
+            batch_year,
+            department,
+            package: !isNaN(packageVal) ? packageVal : 0,
+            placement_status
+          });
+          stats.placementsInserted++;
+        }
+      } catch (err) {
+        console.error(`Failed to process Placement record ${reg_no} @ ${company_name}:`, err.message);
+      }
+    }
+
+    // ─── D. PROCESS HR CONTACTS ───
+    if (company_name && hr_name && hr_email) {
+      try {
+        const existingHR = await HRContact.findOne({
+          company_name,
+          email: hr_email
+        });
+
+        const hrPayload = {
+          company_name,
+          hr_name,
+          email: hr_email,
+          phone: hr_phone,
+          designation: 'Talent Acquisition Head',
+          notes: '• Imported via single master upload.',
+          batch_year
+        };
+
+        if (existingHR) {
+          if (policy === 'overwrite') {
+            await HRContact.findByIdAndUpdate(existingHR._id, hrPayload, { runValidators: true });
+            stats.hrUpdated++;
+          } else {
+            stats.duplicateRecords++;
+          }
+        } else {
+          await HRContact.create(hrPayload);
+          stats.hrInserted++;
+        }
+      } catch (err) {
+        console.error(`Failed to process HR contact record ${hr_email}:`, err.message);
+      }
+    }
+  }
+
+  return stats;
 };
 
 /**
- * @desc    Upload placements via JSON document/body
+ * @desc    Upload master placement details via JSON body/file
  * @route   POST /api/upload/json
  * @access  Public
  */
 const uploadJsonPlacements = async (req, res, next) => {
   try {
     let records = [];
+    const policy = req.query.policy || 'skip';
 
-    // Check if uploaded as a multipart file or passed directly in request body
     if (req.file) {
       const fileData = fs.readFileSync(req.file.path, 'utf8');
       records = JSON.parse(fileData);
       
-      // Cleanup uploaded file from disk asynchronously
       fs.unlink(req.file.path, (err) => {
         if (err) console.error(`Error deleting temp file: ${err}`);
       });
     } else if (Array.isArray(req.body)) {
       records = req.body;
+    } else if (req.body.records && Array.isArray(req.body.records)) {
+      records = req.body.records;
     } else if (req.body.placements && Array.isArray(req.body.placements)) {
       records = req.body.placements;
+    } else if (req.body.students && Array.isArray(req.body.students)) {
+      records = req.body.students;
     } else {
       res.status(400);
-      throw new Error('Please upload a JSON file or provide a placements JSON array in the body');
+      throw new Error('Please upload a JSON file or provide a master JSON array in the body');
     }
 
-    const summary = await processBulkPlacements(records);
+    const summary = await processBulkMasterUpload(records, policy);
 
     res.status(200).json({
       success: true,
-      message: 'JSON upload completed successfully',
+      message: 'Master JSON upload and distribution completed successfully',
       data: summary
     });
   } catch (error) {
-    // Delete temp file if error occurs
     if (req.file && fs.existsSync(req.file.path)) {
       fs.unlinkSync(req.file.path);
     }
@@ -127,7 +302,7 @@ const uploadJsonPlacements = async (req, res, next) => {
 };
 
 /**
- * @desc    Upload placements via CSV / Excel (.xlsx) file
+ * @desc    Upload master placement details via CSV / Excel (.xlsx) file
  * @route   POST /api/upload/excel
  * @access  Public
  */
@@ -138,26 +313,25 @@ const uploadExcelPlacements = async (req, res, next) => {
       throw new Error('Please upload an Excel (.xlsx) or CSV file');
     }
 
-    // Read and parse spreadsheet
+    const policy = req.query.policy || 'skip';
+
     const workbook = xlsx.readFile(req.file.path);
     const sheetName = workbook.SheetNames[0];
     const worksheet = workbook.Sheets[sheetName];
     const records = xlsx.utils.sheet_to_json(worksheet);
 
-    // Cleanup temp file from disk asynchronously
     fs.unlink(req.file.path, (err) => {
       if (err) console.error(`Error deleting temp file: ${err}`);
     });
 
-    const summary = await processBulkPlacements(records);
+    const summary = await processBulkMasterUpload(records, policy);
 
     res.status(200).json({
       success: true,
-      message: 'Spreadsheet upload completed successfully',
+      message: 'Master spreadsheet upload and distribution completed successfully',
       data: summary
     });
   } catch (error) {
-    // Delete temp file if error occurs
     if (req.file && fs.existsSync(req.file.path)) {
       fs.unlinkSync(req.file.path);
     }

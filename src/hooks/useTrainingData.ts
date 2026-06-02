@@ -1,77 +1,70 @@
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { apiClient } from '../lib/apiClient';
 
 export interface TrainingStudent {
-  id: string;
+  id: string; // Map from MongoDB _id
   name: string;
-  regNo: string;
-  dept: string;
-  aptitude?: number;
-  coding?: number;
-  communication?: number;
-  mockInterview?: number;
-  attendance?: number;
-  avgScore?: number;
-  readinessLevel?: 'Highly Placeable' | 'Placement Ready' | 'Needs Improvement' | 'High Risk';
+  regNo: string; // Map from reg_no
+  dept: string; // Map from department
+  aptitude: number; // Map from aptitude_score
+  coding: number; // Map from coding_score
+  communication: number; // Map from communication_score
+  mockInterview: number; // Map from mock_interview_score
+  attendance: number;
+  avgScore: number; // Calculated Readiness Score
+  readinessLevel: 'Highly Placeable' | 'Placement Ready' | 'Needs Improvement' | 'High Risk';
 }
 
 export interface TrainingAnalysis {
-  department: string;
-  placedCount: number;
-  aptitude: number;
-  coding: number;
-  communication: number;
-  attendance: number;
+  radarData: any[];
 }
 
 /**
- * Queries placement candidates from standard records and returns simulated
- * training matrices.
+ * Calculates readiness details for a student record
  */
-export const useTrainingStudentsQuery = (year: string) => {
+export const calculateReadiness = (s: any): { avgScore: number; readinessLevel: TrainingStudent['readinessLevel'] } => {
+  const apt = Number(s.aptitude_score || s.aptitude || 0);
+  const cod = Number(s.coding_score || s.coding || 0);
+  const comm = Number(s.communication_score || s.communication || 0);
+  const mock = Number(s.mock_interview_score || s.mockInterview || 0);
+
+  // Formula: (Aptitude * 0.25) + (Coding * 0.35) + (Communication * 0.20) + (Mock Interview * 0.20)
+  const avgScore = Math.round((apt * 0.25) + (cod * 0.35) + (comm * 0.20) + (mock * 0.20));
+
+  let readinessLevel: TrainingStudent['readinessLevel'] = 'High Risk';
+  if (avgScore >= 85) {
+    readinessLevel = 'Highly Placeable';
+  } else if (avgScore >= 72) {
+    readinessLevel = 'Placement Ready';
+  } else if (avgScore >= 60) {
+    readinessLevel = 'Needs Improvement';
+  }
+
+  return { avgScore, readinessLevel };
+};
+
+/**
+ * Queries training details from the database
+ */
+export const useTrainingStudentsQuery = () => {
   return useQuery<TrainingStudent[]>({
-    queryKey: ['training', 'students', year],
+    queryKey: ['training', 'students'],
     queryFn: async () => {
-      const yearParam = year !== 'All' ? `&batch_year=${year}` : '';
-      const response = await apiClient.get(`/placements?limit=150${yearParam}`);
-      const placements = response.data?.data?.placements || [];
+      const response = await apiClient.get('/training-details');
+      const records = response.data?.data || [];
 
-      // debug logs removed: rely on React Query devtools if needed
-
-      return placements.map((p: any, index: number) => {
-        // Use real fields from placement records when present.
-        // Do NOT synthesize or simulate values here — leave undefined when absent.
-        const aptitude = typeof p.aptitude === 'number' ? p.aptitude : undefined;
-        const coding = typeof p.coding === 'number' ? p.coding : undefined;
-        const communication = typeof p.communication === 'number' ? p.communication : undefined;
-        const mockInterview = typeof p.mockInterview === 'number' ? p.mockInterview : undefined;
-        const attendance = typeof p.attendance === 'number' ? p.attendance : undefined;
-
-        // Compute avgScore and readinessLevel only when enough real numeric fields exist
-        const numericParts = [aptitude, coding, communication, mockInterview, attendance].filter(v => typeof v === 'number') as number[];
-        const avgScore = numericParts.length === 5 ? Math.round(numericParts.reduce((s, v) => s + v, 0) / 5) : undefined;
-
-        let readinessLevel: TrainingStudent['readinessLevel'] | undefined;
-        if (typeof avgScore === 'number') {
-          readinessLevel = avgScore >= 85
-            ? 'Highly Placeable'
-            : avgScore >= 72
-            ? 'Placement Ready'
-            : avgScore >= 60
-            ? 'Needs Improvement'
-            : 'High Risk';
-        }
-
+      return records.map((r: any) => {
+        const { avgScore, readinessLevel } = calculateReadiness(r);
         return {
-          id: p._id || String(index + 1),
-          regNo: p.reg_no,
-          name: p.name,
-          dept: p.department,
-          aptitude,
-          coding,
-          communication,
-          mockInterview,
-          attendance,
+          id: r._id,
+          name: r.name,
+          regNo: r.reg_no,
+          dept: r.department,
+          aptitude: r.aptitude_score,
+          coding: r.coding_score,
+          communication: r.communication_score,
+          mockInterview: r.mock_interview_score,
+          attendance: r.attendance,
           avgScore,
           readinessLevel
         };
@@ -82,29 +75,54 @@ export const useTrainingStudentsQuery = (year: string) => {
 };
 
 /**
- * Hook to retrieve department-wise comparative training radar analysis matrices.
+ * Hook to retrieve department-wise comparative training radar analysis from live training_details
  */
-export const useTrainingAnalysisQuery = (year: string) => {
-  return useQuery<{ radarData: any[] }>({
-    queryKey: ['training', 'analysis', year],
+export const useTrainingAnalysisQuery = () => {
+  return useQuery<TrainingAnalysis>({
+    queryKey: ['training', 'analysis'],
     queryFn: async () => {
-      const yearParam = year !== 'All' ? `?batch_year=${year}` : '';
-      const response = await apiClient.get(`/analytics/departments${yearParam}`);
-      const depts = response.data?.data || [];
+      const response = await apiClient.get('/training-details');
+      const records = response.data?.data || [];
 
-      // debug logs removed: rely on React Query devtools if needed
+      // Group records by department
+      const deptsMap: Record<string, {
+        aptitude: number[];
+        coding: number[];
+        communication: number[];
+        mock: number[];
+        attendance: number[];
+      }> = {};
 
-      const subjects = ['Aptitude', 'Coding', 'Communication', 'Mock Interview', 'Attendance'];
+      records.forEach((r: any) => {
+        const d = r.department || 'Unknown';
+        if (!deptsMap[d]) {
+          deptsMap[d] = { aptitude: [], coding: [], communication: [], mock: [], attendance: [] };
+        }
+        deptsMap[d].aptitude.push(r.aptitude_score || 0);
+        deptsMap[d].coding.push(r.coding_score || 0);
+        deptsMap[d].communication.push(r.communication_score || 0);
+        deptsMap[d].mock.push(r.mock_interview_score || 0);
+        deptsMap[d].attendance.push(r.attendance || 0);
+      });
 
-      // Use real department analytics when available. Backend currently provides
-      // department aggregates (placementPercentage, avgPackage). We map those
-      // values into radar rows without fabricating per-subject scores.
-      const radarData = subjects.map(subject => {
-        const row: Record<string, any> = { subject };
-        depts.forEach((d: any) => {
-          // Prefer placementPercentage if present, otherwise fall back to avgPackage numeric value
-          const score = (typeof d.placementPercentage === 'number' && d.placementPercentage) || (typeof d.avgPackage === 'number' && d.avgPackage) || 0;
-          row[d.department] = score;
+      const deptsList = Object.keys(deptsMap);
+      const subjects = [
+        { name: 'Aptitude', key: 'aptitude' },
+        { name: 'Coding', key: 'coding' },
+        { name: 'Communication', key: 'communication' },
+        { name: 'Mock Interview', key: 'mock' },
+        { name: 'Attendance', key: 'attendance' }
+      ];
+
+      // Calculate averages per department for each subject
+      const radarData = subjects.map(sub => {
+        const row: Record<string, any> = { subject: sub.name };
+        deptsList.forEach(dept => {
+          const scores = deptsMap[dept][sub.key as keyof typeof deptsMap[string]] || [];
+          const avg = scores.length > 0 
+            ? Math.round(scores.reduce((s, v) => s + v, 0) / scores.length * 10) / 10
+            : 0;
+          row[dept] = avg;
         });
         return row;
       });
@@ -112,5 +130,79 @@ export const useTrainingAnalysisQuery = (year: string) => {
       return { radarData };
     },
     staleTime: 5 * 60 * 1000,
+  });
+};
+
+/**
+ * Mutation hooks for CRUD operations
+ */
+export const useAddTrainingMutation = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (payload: {
+      reg_no: string;
+      name: string;
+      department: string;
+      aptitude_score: number;
+      coding_score: number;
+      communication_score: number;
+      mock_interview_score: number;
+      attendance: number;
+    }) => {
+      const response = await apiClient.post('/training-details', payload);
+      return response.data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['training'] });
+    }
+  });
+};
+
+export const useUpdateTrainingMutation = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (payload: {
+      id: string;
+      name?: string;
+      department?: string;
+      aptitude_score?: number;
+      coding_score?: number;
+      communication_score?: number;
+      mock_interview_score?: number;
+      attendance?: number;
+    }) => {
+      const { id, ...data } = payload;
+      const response = await apiClient.put(`/training-details/${id}`, data);
+      return response.data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['training'] });
+    }
+  });
+};
+
+export const useDeleteTrainingMutation = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (id: string) => {
+      const response = await apiClient.delete(`/training-details/${id}`);
+      return response.data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['training'] });
+    }
+  });
+};
+
+export const useImportTrainingMutation = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ records, policy }: { records: any[]; policy: 'skip' | 'overwrite' }) => {
+      const response = await apiClient.post(`/training-details/import?policy=${policy}`, records);
+      return response.data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['training'] });
+    }
   });
 };
