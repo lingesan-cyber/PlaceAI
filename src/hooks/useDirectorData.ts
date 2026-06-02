@@ -23,14 +23,6 @@ export interface DirectorStats {
     name: string;
     selections: number;
   }[];
-  activities: {
-    id: string;
-    user: string;
-    time: string;
-    action: string;
-    role: string;
-    target: string;
-  }[];
 }
 
 const normalizeBatchYear = (record: any): string => {
@@ -47,17 +39,7 @@ const parsePackageValue = (value: any): number => {
   return Number.isFinite(parsed) ? parsed : 0;
 };
 
-const formatTimeAgo = (dateValue: any): string => {
-  if (!dateValue) return 'Recently';
-  const timestamp = new Date(dateValue).getTime();
-  if (Number.isNaN(timestamp)) return 'Recently';
-  const diffHours = Math.max(0, Math.floor((Date.now() - timestamp) / (1000 * 60 * 60)));
-  if (diffHours < 1) return 'Just now';
-  if (diffHours === 1) return '1 hour ago';
-  if (diffHours < 24) return `${diffHours} hours ago`;
-  const diffDays = Math.floor(diffHours / 24);
-  return diffDays === 1 ? '1 day ago' : `${diffDays} days ago`;
-};
+
 
 const buildTopHiring = (placements: any[]): { name: string; selections: number }[] => {
   const counts = new Map<string, number>();
@@ -128,36 +110,7 @@ const buildDepartmentStats = (students: any[], placements: any[]) => {
   return { deptPerformance, deptPackages };
 };
 
-const buildActivities = (placements: any[], companies: any[]) => {
-  const placementEvents = placements
-    .map((placement: any, index: number) => ({
-      id: `placement-${placement._id || index}`,
-      user: 'Placement Officer',
-      time: formatTimeAgo(placement.updatedAt || placement.createdAt),
-      action: `${placement.name || placement.reg_no || 'Student'} placed at ${placement.company || 'Unknown Company'}`,
-      role: 'Placement Officer',
-      target: placement.company || 'Unknown Company',
-      timestamp: new Date(placement.updatedAt || placement.createdAt || 0).getTime()
-    }))
-    .filter((event: any) => Number.isFinite(event.timestamp));
 
-  const companyEvents = companies
-    .map((company: any, index: number) => ({
-      id: `company-${company._id || index}`,
-      user: 'Recruitment Team',
-      time: formatTimeAgo(company.updatedAt || company.createdAt),
-      action: `${company.company_name || 'Company'} drive updated`,
-      role: 'Recruitment Team',
-      target: company.company_name || 'Company',
-      timestamp: new Date(company.updatedAt || company.createdAt || 0).getTime()
-    }))
-    .filter((event: any) => Number.isFinite(event.timestamp));
-
-  return [...placementEvents, ...companyEvents]
-    .sort((a, b) => b.timestamp - a.timestamp)
-    .slice(0, 3)
-    .map(({ id, user, time, action, role, target }: any) => ({ id, user, time, action, role, target }));
-};
 
 /**
  * Fetches strategic director stats directly from student, placement, and company records.
@@ -166,17 +119,15 @@ export const useDirectorData = (year: string) => {
   return useQuery<DirectorStats>({
     queryKey: ['director', 'stats', year],
     queryFn: async () => {
-      const [studentsRes, placementsRes, companiesRes] = await Promise.all([
+      const [studentsRes, placementsRes] = await Promise.all([
         apiClient.get('/students?limit=5000'),
-        apiClient.get('/placements?limit=5000'),
-        apiClient.get('/companies')
+        apiClient.get('/placements?limit=5000')
       ]);
 
       const studentPayload = studentsRes.data?.data;
       const placementPayload = placementsRes.data?.data;
       const rawStudents = Array.isArray(studentPayload) ? studentPayload : (studentPayload?.students || []);
       const rawPlacements = Array.isArray(placementPayload) ? placementPayload : (placementPayload?.placements || []);
-      const rawCompanies = companiesRes.data?.data || [];
 
       const isAllYears = !year || year.toLowerCase() === 'all';
       const selectedStudents = isAllYears
@@ -207,7 +158,6 @@ export const useDirectorData = (year: string) => {
 
       const { deptPerformance, deptPackages } = buildDepartmentStats(selectedStudents, selectedPlacements);
       const topHiring = buildTopHiring(selectedPlacements);
-      const activities = buildActivities(selectedPlacements, rawCompanies);
 
       return {
         packages: {
@@ -217,8 +167,7 @@ export const useDirectorData = (year: string) => {
         },
         deptPerformance,
         deptPackages,
-        topHiring,
-        activities
+        topHiring
       };
     },
     staleTime: 5 * 60 * 1000

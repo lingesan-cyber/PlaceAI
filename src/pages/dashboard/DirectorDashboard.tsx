@@ -5,10 +5,6 @@ import {
   Award, 
   Coins, 
   TrendingUp, 
-  FileSpreadsheet, 
-  Building2, 
-  Clock, 
-  ShieldAlert,
   ArrowUpRight
 } from 'lucide-react';
 import { 
@@ -21,7 +17,6 @@ import {
   ResponsiveContainer, 
   Legend
 } from 'recharts';
-import * as XLSX from 'xlsx';
 
 export const DirectorDashboard: React.FC = () => {
   const { selectedYear } = useAuthStore();
@@ -62,77 +57,7 @@ export const DirectorDashboard: React.FC = () => {
     '#64748B', // slate-500
   ];
 
-  // E) Report Generation downloads
-  const downloadYearwiseReport = () => {
-    if (!yearlyData) return;
-    const wb = XLSX.utils.book_new();
-    const ws = XLSX.utils.json_to_sheet(
-      yearlyData.map((row: any) => {
-        const formattedRow: any = { "Academic Year": row.year };
-        let total = 0;
-        Object.keys(row).forEach((k) => {
-          if (k !== 'year') {
-            formattedRow[k] = row[k];
-            if (typeof row[k] === 'number') {
-              total += row[k];
-            }
-          }
-        });
-        formattedRow["Total Placements Count"] = total;
-        return formattedRow;
-      })
-    );
-    XLSX.utils.book_append_sheet(wb, ws, "Year-wise Placement Trend");
-    XLSX.writeFile(wb, "PlaceAI_Director_Yearwise_Placement_Analysis.xlsx");
-  };
 
-  const downloadDeptReport = () => {
-    if (!statsData) return;
-    const wb = XLSX.utils.book_new();
-    
-    // Performance sheet
-    const wsPerf = XLSX.utils.json_to_sheet(
-      statsData.deptPerformance.map((d: any) => ({
-        "Department": d.department,
-        "Placed Students": d.placed,
-        "Total Registered": d.total,
-        "Placement Rate (%)": d.percentage,
-        "Top Recruiter Offer": d.topCompany
-      }))
-    );
-    XLSX.utils.book_append_sheet(wb, wsPerf, "Department Performance");
-    
-    // Packages sheet
-    const wsPkg = XLSX.utils.json_to_sheet(
-      statsData.deptPackages.map((p: any) => ({
-        "Department": p.name,
-        "Average Package (LPA)": p.avgPkg
-      }))
-    );
-    XLSX.utils.book_append_sheet(wb, wsPkg, "Department Average Packages");
-    
-    XLSX.writeFile(wb, "PlaceAI_Director_Departmental_Performance_Report.xlsx");
-  };
-
-  const downloadPlacementSummary = () => {
-    if (!statsData) return;
-    const wb = XLSX.utils.book_new();
-    
-    const topHiringPartner = statsData.topHiring && statsData.topHiring.length > 0
-      ? `${statsData.topHiring[0].name} (${statsData.topHiring[0].selections} Selections)`
-      : 'N/A';
-
-    const summaryRows = [
-      { "Metric KPI": "Highest Campus Package", "Value Offer": statsData.packages.highest },
-      { "Metric KPI": "Average Campus Package", "Value Offer": statsData.packages.average },
-      { "Metric KPI": "Median Campus Package", "Value Offer": statsData.packages.median },
-      { "Metric KPI": "Top Hiring Partner", "Value Offer": topHiringPartner },
-      { "Metric KPI": "Active Partnerships MOU", "Value Offer": "18 MOUs Signed" }
-    ];
-    const ws = XLSX.utils.json_to_sheet(summaryRows);
-    XLSX.utils.book_append_sheet(wb, ws, "Placement Summary Overview");
-    XLSX.writeFile(wb, "PlaceAI_Director_Placement_Executive_Summary.xlsx");
-  };
 
   // Computed Department Rankings
   const rankedDepts = React.useMemo(() => {
@@ -194,7 +119,7 @@ export const DirectorDashboard: React.FC = () => {
       {/* Page Header */}
       <div>
         <h1 className="text-2xl font-black text-slate-800 tracking-tight">Director's Strategic Workspace</h1>
-        <p className="text-slate-500 text-sm">High-level institutional statistics, YoY departmental analysis, and system activity records.</p>
+        <p className="text-slate-500 text-sm">High-level institutional statistics, YoY departmental analysis, and placement success trends.</p>
       </div>
 
       {/* B) Package Analytics Cards */}
@@ -442,129 +367,6 @@ export const DirectorDashboard: React.FC = () => {
                 <Bar dataKey="selections" fill="#1E40AF" name="Selections" radius={[0, 4, 4, 0]} />
               </BarChart>
             </ResponsiveContainer>
-          </div>
-        </div>
-      </div>
-
-      {/* Row 3: Timeline & Report Generators */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        
-        {/* F) Activity Log Scrollable Timeline (20 items) */}
-        <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm lg:col-span-2 flex flex-col">
-          <div className="mb-4 flex items-center justify-between">
-            <div>
-              <h3 className="text-base font-extrabold text-slate-800">System Activity Records</h3>
-              <p className="text-slate-400 text-xs">Timeline log of activities executed by users and automated background agents.</p>
-            </div>
-            <span className="text-xs bg-slate-100 text-slate-600 px-2 py-0.5 rounded flex items-center gap-1 font-bold">
-              <Clock className="h-3 w-3" />
-              <span>Realtime</span>
-            </span>
-          </div>
-
-          <div className="max-h-[360px] overflow-y-auto pr-2 relative mt-4">
-            <div className="absolute left-6 top-2 bottom-2 w-0.5 bg-slate-150"></div>
-            <div className="space-y-5">
-              {statsData.activities.map((act: any) => (
-                <div key={act.id} className="flex gap-4 relative pl-4">
-                  {/* Timeline bullet dot */}
-                  <div className="h-5 w-5 rounded-full bg-slate-900 border-4 border-white flex items-center justify-center shadow z-10 flex-shrink-0">
-                    <span className="h-1.5 w-1.5 rounded-full bg-blue-500"></span>
-                  </div>
-
-                  {/* Activity descriptions */}
-                  <div className="flex-1 min-w-0 bg-slate-50 border border-slate-200/60 p-3.5 rounded-xl hover:border-slate-200 hover:bg-slate-50/50 transition-colors">
-                    <div className="flex items-center justify-between gap-4">
-                      <span className="font-bold text-slate-800 text-xs truncate">{act.user}</span>
-                      <span className="text-[9px] text-slate-400 font-medium whitespace-nowrap">{act.time}</span>
-                    </div>
-                    <p className="text-xs text-slate-500 mt-1 leading-normal">
-                      <span className="font-semibold text-slate-700 capitalize">{act.action}</span>:{" "}
-                      <span className="text-slate-600 font-medium italic">{act.target}</span>
-                    </p>
-                    <span className={`inline-block text-[9px] px-1.5 py-0.5 rounded mt-2 font-bold uppercase tracking-wider border ${
-                      act.role === 'Director' 
-                        ? 'bg-purple-50 text-purple-700 border-purple-200' 
-                        : act.role === 'Placement Officer'
-                        ? 'bg-blue-50 text-blue-700 border-blue-200'
-                        : act.role === 'Training Head'
-                        ? 'bg-amber-50 text-amber-700 border-amber-200'
-                        : 'bg-slate-100 text-slate-600 border-slate-200'
-                    }`}>
-                      {act.role}
-                    </span>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-        </div>
-
-        {/* E) Report Generation Controls */}
-        <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm flex flex-col justify-between h-full">
-          <div>
-            <h3 className="text-base font-extrabold text-slate-800">Executive Report Generation</h3>
-            <p className="text-slate-400 text-xs">Generate compiled strategic reports from placement database metrics.</p>
-          </div>
-
-          <div className="space-y-4 my-6 flex-1 flex flex-col justify-center">
-            {/* Year-wise Report */}
-            <button
-              onClick={downloadYearwiseReport}
-              className="flex items-center justify-between w-full p-4 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 hover:border-slate-300 transition-all text-slate-700 group cursor-pointer"
-            >
-              <div className="flex items-center gap-3">
-                <div className="p-2 bg-blue-50 text-blue-600 rounded-lg group-hover:scale-110 transition-transform">
-                  <FileSpreadsheet className="h-5 w-5" />
-                </div>
-                <div className="text-left">
-                  <h4 className="text-xs font-bold text-slate-800">Year-wise Placements Report</h4>
-                  <p className="text-[10px] text-slate-400">Stacked department counts (Excel)</p>
-                </div>
-              </div>
-              <ArrowUpRight className="h-4 w-4 text-slate-400 group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-transform" />
-            </button>
-
-            {/* Departmental Report */}
-            <button
-              onClick={downloadDeptReport}
-              className="flex items-center justify-between w-full p-4 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 hover:border-slate-300 transition-all text-slate-700 group cursor-pointer"
-            >
-              <div className="flex items-center gap-3">
-                <div className="p-2 bg-violet-50 text-violet-600 rounded-lg group-hover:scale-110 transition-transform">
-                  <Building2 className="h-5 w-5" />
-                </div>
-                <div className="text-left">
-                  <h4 className="text-xs font-bold text-slate-800">Department Performance Report</h4>
-                  <p className="text-[10px] text-slate-400">LPA packages and percentages (Excel)</p>
-                </div>
-              </div>
-              <ArrowUpRight className="h-4 w-4 text-slate-400 group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-transform" />
-            </button>
-
-            {/* Placement Executive Summary */}
-            <button
-              onClick={downloadPlacementSummary}
-              className="flex items-center justify-between w-full p-4 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 hover:border-slate-300 transition-all text-slate-700 group cursor-pointer"
-            >
-              <div className="flex items-center gap-3">
-                <div className="p-2 bg-amber-50 text-amber-600 rounded-lg group-hover:scale-110 transition-transform">
-                  <Award className="h-5 w-5" />
-                </div>
-                <div className="text-left">
-                  <h4 className="text-xs font-bold text-slate-800">Placement Summary Overview</h4>
-                  <p className="text-[10px] text-slate-400">KPI metrics summaries & MOUs (Excel)</p>
-                </div>
-              </div>
-              <ArrowUpRight className="h-4 w-4 text-slate-400 group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-transform" />
-            </button>
-          </div>
-
-          <div className="p-3 bg-slate-50 border border-slate-200/60 rounded-xl flex gap-3 text-slate-500">
-            <ShieldAlert className="h-5 w-5 text-slate-400 flex-shrink-0 mt-0.5" />
-            <p className="text-[10px] leading-relaxed">
-              These files represent real-time database snap summaries, certified for academic audit submission.
-            </p>
           </div>
         </div>
       </div>
