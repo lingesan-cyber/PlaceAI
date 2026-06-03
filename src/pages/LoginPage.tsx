@@ -85,8 +85,10 @@ export const LoginPage: React.FC = () => {
     }
   ];
 
-  const onSubmit = (data: LoginFields) => {
-    // Validate manually against Zod schema (already validated via hook-form, but double check)
+  const [errorMsg, setErrorMsg] = React.useState<string | null>(null);
+  const [loading, setLoading] = React.useState<boolean>(false);
+
+  const onSubmit = async (data: LoginFields) => {
     const validationResult = loginSchema.safeParse(data);
     if (!validationResult.success) {
       validationResult.error.errors.forEach(err => {
@@ -95,26 +97,26 @@ export const LoginPage: React.FC = () => {
       return;
     }
 
-    const emailLower = data.email.toLowerCase().trim();
-    const matchedAccount = demoAccounts.find(acc => acc.email === emailLower);
-
-    let role: UserRole = 'overall'; // Default role
-    if (matchedAccount) {
-      role = matchedAccount.role;
-    } else {
-      // Guess role from email prefix/content for any custom email
-      if (emailLower.includes('director')) {
-        role = 'director';
-      } else if (emailLower.includes('officer') || emailLower.includes('placement')) {
-        role = 'officer';
-      } else if (emailLower.includes('training') || emailLower.includes('staff')) {
-        role = 'training';
-      }
+    setErrorMsg(null);
+    setLoading(true);
+    try {
+      await login(data.email.toLowerCase().trim(), data.password);
+      navigate(from, { replace: true });
+    } catch (err: unknown) {
+      console.error(err);
+      const errorObj = err as {
+        response?: {
+          data?: {
+            message?: string;
+          };
+        };
+        message?: string;
+      };
+      const msg = errorObj.response?.data?.message || errorObj.message || 'Invalid email or password';
+      setErrorMsg(msg);
+    } finally {
+      setLoading(false);
     }
-
-    // Simulate successful login and store JWT token + user role in Zustand authStore
-    login(role, data.email);
-    navigate(from, { replace: true });
   };
 
   const handleAutofill = (email: string) => {
@@ -147,6 +149,13 @@ export const LoginPage: React.FC = () => {
         <p className="text-slate-400 text-xs text-center mt-1 leading-relaxed">
           Sign in to access your placement analytics workstation.
         </p>
+
+        {errorMsg && (
+          <div className="mt-4 p-3 bg-red-500/10 border border-red-500/20 text-red-400 text-xs rounded-xl flex items-center gap-2">
+            <AlertCircle className="h-4 w-4 flex-shrink-0" />
+            <span>{errorMsg}</span>
+          </div>
+        )}
 
         {/* Login Form */}
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-4 mt-6">
@@ -193,9 +202,10 @@ export const LoginPage: React.FC = () => {
           {/* Submit button */}
           <button
             type="submit"
-            className="w-full mt-2 py-3 px-4 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white rounded-xl text-xs font-bold transition-all shadow-lg shadow-blue-500/10 hover:shadow-blue-500/20 active:scale-[0.98] cursor-pointer"
+            disabled={loading}
+            className="w-full mt-2 py-3 px-4 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white rounded-xl text-xs font-bold transition-all shadow-lg shadow-blue-500/10 hover:shadow-blue-500/20 active:scale-[0.98] cursor-pointer disabled:opacity-55 disabled:cursor-not-allowed"
           >
-            Sign In
+            {loading ? 'Signing In...' : 'Sign In'}
           </button>
         </form>
 

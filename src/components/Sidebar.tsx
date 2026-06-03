@@ -55,12 +55,8 @@ export const Sidebar: React.FC = () => {
     },
   ];
 
-  // Filter items based on user role
-  const filteredNavItems = navItems.filter(item => {
-    if (!user) return false;
-    if (user.role === 'overall') return true;
-    return item.roles.includes(user.role);
-  });
+  // Show all dashboards to all authenticated users
+  const filteredNavItems = navItems;
 
   return (
     <aside className="w-64 bg-slate-900 text-slate-100 flex flex-col h-full border-r border-slate-800 shadow-xl transition-all duration-300">

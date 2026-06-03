@@ -1,11 +1,53 @@
 const mongoose = require('mongoose');
 const HRContact = require('../models/HRContact');
 const TrainingDetail = require('../models/TrainingDetail');
+const User = require('../models/User');
 
 const connectDB = async () => {
   try {
     const conn = await mongoose.connect(process.env.MONGO_URI || 'mongodb://localhost:27017/placeai');
     console.log(`MongoDB Connected: ${conn.connection.host}`);
+
+    // Seed initial users if none exist
+    try {
+      const userCount = await User.countDocuments();
+      if (userCount === 0) {
+        console.log('Seeding initial demo users...');
+        await User.create([
+          {
+            name: 'Global Administrator',
+            email: 'admin@placement.edu',
+            password: 'password',
+            role: 'overall',
+            avatar: 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=150&h=150&fit=crop&crop=face'
+          },
+          {
+            name: 'Dr. Sarah Jenkins (Director)',
+            email: 'director@placement.edu',
+            password: 'password',
+            role: 'director',
+            avatar: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=150&h=150&fit=crop&crop=face'
+          },
+          {
+            name: 'Mr. Rajesh Kumar (Placement Officer)',
+            email: 'officer@placement.edu',
+            password: 'password',
+            role: 'officer',
+            avatar: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150&h=150&fit=crop&crop=face'
+          },
+          {
+            name: 'Prof. Amit Sharma (Training Head)',
+            email: 'training@placement.edu',
+            password: 'password',
+            role: 'training',
+            avatar: 'https://images.unsplash.com/photo-1519345182560-3f2917c472ef?w=150&h=150&fit=crop&crop=face'
+          }
+        ]);
+        console.log('Demo users seeded successfully!');
+      }
+    } catch (err) {
+      console.error('Error seeding demo users:', err.message);
+    }
 
     // Seed initial HR contacts if none exist
     try {

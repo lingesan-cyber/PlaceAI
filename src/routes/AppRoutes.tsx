@@ -18,15 +18,9 @@ export const AppRoutes: React.FC = () => {
       {/* Protected Dashboards Nested in Layout */}
       <Route path="/dashboard" element={<ProtectedRoute><Layout /></ProtectedRoute>}>
         <Route path="overall" element={<OverallDashboard />} />
-        <Route path="director" element={
-          <ProtectedRoute allowedRoles={['director']}><DirectorDashboard /></ProtectedRoute>
-        } />
-        <Route path="officer" element={
-          <ProtectedRoute allowedRoles={['officer']}><PlacementOfficerDashboard /></ProtectedRoute>
-        } />
-        <Route path="training" element={
-          <ProtectedRoute allowedRoles={['training']}><TrainingStaffDashboard /></ProtectedRoute>
-        } />
+        <Route path="director" element={<DirectorDashboard />} />
+        <Route path="officer" element={<PlacementOfficerDashboard />} />
+        <Route path="training" element={<TrainingStaffDashboard />} />
         <Route path="settings" element={<SettingsPage />} />
 
         <Route index element={<Navigate to="overall" replace />} />
