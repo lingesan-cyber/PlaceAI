@@ -31,9 +31,31 @@ export interface DirectorStats {
   }[];
 }
 
-const buildTopHiring = (placements: any[]): { name: string; selections: number }[] => {
+interface StudentRecord {
+  batch_year?: string | number;
+  batchYear?: string | number;
+  year?: string | number;
+  department?: string;
+  dept?: string;
+  [key: string]: unknown;
+}
+
+interface PlacementRecord {
+  batch_year?: string | number;
+  batchYear?: string | number;
+  year?: string | number;
+  placement_status?: string;
+  placementStatus?: string;
+  company?: string;
+  package?: number | string;
+  department?: string;
+  dept?: string;
+  [key: string]: unknown;
+}
+
+const buildTopHiring = (placements: PlacementRecord[]): { name: string; selections: number }[] => {
   const counts = new Map<string, number>();
-  placements.forEach((placement: any) => {
+  placements.forEach((placement: PlacementRecord) => {
     if (normalizePlacementStatus(placement.placement_status) !== 'placed') return;
     const companyName = String(placement.company ?? '').trim();
     if (!companyName) return;
@@ -46,23 +68,23 @@ const buildTopHiring = (placements: any[]): { name: string; selections: number }
     .slice(0, 3);
 };
 
-const buildDepartmentStats = (students: any[], placements: any[]) => {
+const buildDepartmentStats = (students: StudentRecord[], placements: PlacementRecord[]) => {
   const departments = Array.from(
     new Set([
-      ...students.map((student: any) => normalizeDepartment(student)),
-      ...placements.map((placement: any) => normalizeDepartment(placement))
+      ...students.map((student: StudentRecord) => normalizeDepartment(student)),
+      ...placements.map((placement: PlacementRecord) => normalizeDepartment(placement))
     ].filter(Boolean))
   ).sort();
 
   const deptPerformance = departments.map((department) => {
-    const deptStudents = students.filter((student: any) => normalizeDepartment(student) === department);
-    const deptPlacements = placements.filter((placement: any) => normalizeDepartment(placement) === department && normalizePlacementStatus(placement.placement_status) === 'placed');
+    const deptStudents = students.filter((student: StudentRecord) => normalizeDepartment(student) === department);
+    const deptPlacements = placements.filter((placement: PlacementRecord) => normalizeDepartment(placement) === department && normalizePlacementStatus(placement.placement_status) === 'placed');
     const total = deptStudents.length;
     const placed = deptPlacements.length;
     const percentage = total > 0 ? parseFloat(((placed / total) * 100).toFixed(1)) : 0;
     const topCompanyCounts = new Map<string, number>();
 
-    deptPlacements.forEach((placement: any) => {
+    deptPlacements.forEach((placement: PlacementRecord) => {
       const companyName = String(placement.company ?? '').trim();
       if (!companyName) return;
       topCompanyCounts.set(companyName, (topCompanyCounts.get(companyName) || 0) + 1);
@@ -72,7 +94,7 @@ const buildDepartmentStats = (students: any[], placements: any[]) => {
       .sort((a, b) => b[1] - a[1])[0]?.[0] || 'N/A';
 
     const highestPackage = deptPlacements.length > 0
-      ? `${Math.max(...deptPlacements.map((placement: any) => parsePackageValue(placement.package))).toFixed(1)} LPA`
+      ? `${Math.max(...deptPlacements.map((placement: PlacementRecord) => parsePackageValue(placement.package))).toFixed(1)} LPA`
       : '0.0 LPA';
 
     return {
@@ -86,9 +108,9 @@ const buildDepartmentStats = (students: any[], placements: any[]) => {
   });
 
   const deptPackages = departments.map((department) => {
-    const deptPlacements = placements.filter((placement: any) => normalizeDepartment(placement) === department && normalizePlacementStatus(placement.placement_status) === 'placed');
+    const deptPlacements = placements.filter((placement: PlacementRecord) => normalizeDepartment(placement) === department && normalizePlacementStatus(placement.placement_status) === 'placed');
     const avgPkg = deptPlacements.length > 0
-      ? deptPlacements.reduce((sum: number, placement: any) => sum + parsePackageValue(placement.package), 0) / deptPlacements.length
+      ? deptPlacements.reduce((sum: number, placement: PlacementRecord) => sum + parsePackageValue(placement.package), 0) / deptPlacements.length
       : 0;
 
     return {
@@ -120,15 +142,15 @@ export const useDirectorData = (year: string) => {
       const isAllYears = !year || year.toLowerCase() === 'all';
       const selectedStudents = isAllYears
         ? rawStudents
-        : rawStudents.filter((student: any) => normalizeBatchYear(student) === String(year));
+        : rawStudents.filter((student: StudentRecord) => normalizeBatchYear(student) === String(year));
 
       const selectedPlacements = isAllYears
         ? rawPlacements
-        : rawPlacements.filter((placement: any) => normalizeBatchYear(placement) === String(year));
+        : rawPlacements.filter((placement: PlacementRecord) => normalizeBatchYear(placement) === String(year));
 
       const packages = selectedPlacements
-        .filter((placement: any) => normalizePlacementStatus(placement.placement_status) === 'placed')
-        .map((placement: any) => parsePackageValue(placement.package))
+        .filter((placement: PlacementRecord) => normalizePlacementStatus(placement.placement_status) === 'placed')
+        .map((placement: PlacementRecord) => parsePackageValue(placement.package))
         .filter((value: number) => value > 0)
         .sort((a: number, b: number) => a - b);
 
@@ -164,7 +186,7 @@ export const useDirectorData = (year: string) => {
  * Fetches strategic institutional multi-year stacked placement trends.
  */
 export const useDirectorYearlyAnalysis = (year: string) => {
-  return useQuery<any[]>({
+  return useQuery<Record<string, unknown>[]>({
     queryKey: ['director', 'yearly-analysis', year],
     queryFn: async () => {
       const response = await apiClient.get('/placements?limit=5000');
@@ -173,19 +195,19 @@ export const useDirectorYearlyAnalysis = (year: string) => {
       const isAllYears = !year || year.toLowerCase() === 'all';
       const filteredPlacements = isAllYears
         ? placements
-        : placements.filter((placement: any) => normalizeBatchYear(placement) === String(year));
+        : placements.filter((placement: PlacementRecord) => normalizeBatchYear(placement) === String(year));
 
       const batchYears: string[] = Array.from(
-        new Set<string>(filteredPlacements.map((placement: any) => normalizeBatchYear(placement)).filter(Boolean) as string[])
+        new Set<string>(filteredPlacements.map((placement: PlacementRecord) => normalizeBatchYear(placement)).filter(Boolean) as string[])
       ).sort((a, b) => a.localeCompare(b));
       const departments: string[] = Array.from(
-        new Set<string>(filteredPlacements.map((placement: any) => normalizeDepartment(placement)).filter(Boolean) as string[])
+        new Set<string>(filteredPlacements.map((placement: PlacementRecord) => normalizeDepartment(placement)).filter(Boolean) as string[])
       ).sort();
 
       const rows = batchYears.map((batchYear) => {
-        const row: Record<string, any> = { year: batchYear };
+        const row: Record<string, unknown> = { year: batchYear };
         departments.forEach((department) => {
-          row[department] = filteredPlacements.filter((placement: any) => normalizeBatchYear(placement) === batchYear && normalizeDepartment(placement) === department && normalizePlacementStatus(placement.placement_status) === 'placed').length;
+          row[department] = filteredPlacements.filter((placement: PlacementRecord) => normalizeBatchYear(placement) === batchYear && normalizeDepartment(placement) === department && normalizePlacementStatus(placement.placement_status) === 'placed').length;
         });
         return row;
       });

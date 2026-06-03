@@ -8,8 +8,13 @@ export interface PortalMetadata {
   departments: string[];
 }
 
+interface RawYear {
+  year: number | string;
+  visible?: boolean;
+}
+
 /**
- * Hook to retrieve static/dynamic portal metadata, combining database year profiles
+ * Hook to retrieve static/dynamic portal portal metadata, combining database year profiles
  * with verified academic departments constants.
  */
 export const useMetadataQuery = () => {
@@ -17,7 +22,7 @@ export const useMetadataQuery = () => {
     queryKey: ['metadata'],
     queryFn: async () => {
       const response = await apiClient.get('/years?all=true');
-      const years = (response.data?.data || []).map((y: any) => String(y.year));
+      const years = (response.data?.data || []).map((y: RawYear) => String(y.year));
       return {
         years,
         departments: ['CSE', 'IT', 'ADS', 'ECE', 'EEE', 'MECH', 'MECHATRONICS', 'CIVIL', 'FT']
@@ -38,16 +43,16 @@ export const useYearsQuery = () => {
     queryKey: ['years'],
     queryFn: async () => {
       const response = await apiClient.get('/years?all=true');
-      const list = response.data?.data || [];
+      const list = (response.data?.data || []) as RawYear[];
 
       const active = list
-        .filter((y: any) => y.visible !== false)
-        .map((y: any) => String(y.year))
+        .filter((y: RawYear) => y.visible !== false)
+        .map((y: RawYear) => String(y.year))
         .sort((a: string, b: string) => b.localeCompare(a)); // newest-first
 
       const archived = list
-        .filter((y: any) => y.visible === false)
-        .map((y: any) => String(y.year))
+        .filter((y: RawYear) => y.visible === false)
+        .map((y: RawYear) => String(y.year))
         .sort((a: string, b: string) => b.localeCompare(a));
 
       return { active, archived };

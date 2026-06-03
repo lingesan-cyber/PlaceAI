@@ -95,3 +95,83 @@ export interface SettingsPayload {
   dashboard_preferences: PortalSettings['dashboard_preferences'];
 }
 
+export interface DbStudent {
+  _id: string;
+  name: string;
+  reg_no: string;
+  department: string;
+  batch_year: string;
+  cgpa?: number;
+  arrears?: number;
+  skills?: string[];
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export interface DbCompany {
+  _id: string;
+  company_name: string;
+  batch_year: string;
+  status: string;
+  package: number;
+  drive_date?: string;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export interface DbPlacement {
+  _id: string;
+  name: string;
+  reg_no: string;
+  department: string;
+  batch_year?: string;
+  year?: string;
+  company: string;
+  placement_status?: string;
+  role?: string;
+  package?: number | string;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export interface DbHrContact {
+  _id: string;
+  hr_name: string;
+  batch_year: string;
+  company_name: string;
+  email: string;
+  phone?: string;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export interface DbTrainingDetail {
+  _id: string;
+  name: string;
+  reg_no: string;
+  department: string;
+  batch_year: string;
+  aptitude?: number;
+  coding?: number;
+  communication?: number;
+  mockInterview?: number;
+  aptitude_score?: number;
+  coding_score?: number;
+  communication_score?: number;
+  mock_interview_score?: number;
+  attendance?: number;
+  avgScore?: number;
+  readinessLevel?: string;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export interface GlobalSearchResponse {
+  students: DbStudent[];
+  companies: DbCompany[];
+  placements: DbPlacement[];
+  hr_contacts: DbHrContact[];
+  training_details: DbTrainingDetail[];
+}
+
+

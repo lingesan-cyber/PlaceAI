@@ -109,7 +109,7 @@ export const useYearsStore = create<YearsState>()(
           // Lookup database _id by year number string
           const response = await apiClient.get('/years?all=true');
           const list = response.data?.data || [];
-          const match = list.find((y: any) => String(y.year) === year);
+          const match = list.find((y: { _id: string; year: number | string }) => String(y.year) === year);
           
           if (match) {
             await apiClient.patch(`/years/${match._id}/archive`);
@@ -134,7 +134,7 @@ export const useYearsStore = create<YearsState>()(
           // Lookup database _id by year number string
           const response = await apiClient.get('/years?all=true');
           const list = response.data?.data || [];
-          const match = list.find((y: any) => String(y.year) === year);
+          const match = list.find((y: { _id: string; year: number | string }) => String(y.year) === year);
           
           if (match) {
             await apiClient.patch(`/years/${match._id}/restore`);

@@ -127,7 +127,7 @@ const colorMap: Record<string, { tab: string; badge: string; copy: string; borde
 
 function tokenizeLine(line: string): React.ReactNode[] {
   // Single-pass tokenizer: match key, string-value, number, boolean/null, or plain text
-  const TOKEN_RE = /("(?:[^"\\]|\\.)*")(\s*:)|:\s*("(?:[^"\\]|\\.)*")|:\s*(-?\d+\.?\d*(?:[eE][+-]?\d+)?)|:\s*(true|false|null)|([\[\]{},])/g;
+  const TOKEN_RE = /("(?:[^"\\]|\\.)*")(\s*:)|:\s*("(?:[^"\\]|\\.)*")|:\s*(-?\d+\.?\d*(?:[eE][+-]?\d+)?)|:\s*(true|false|null)|([[\]{},])/g;
   const nodes: React.ReactNode[] = [];
   let cursor = 0;
   let match: RegExpExecArray | null;

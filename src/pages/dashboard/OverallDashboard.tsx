@@ -82,7 +82,7 @@ export const OverallDashboard: React.FC = () => {
   const growthData = useMemo(() => {
     if (!data?.growth) return [];
     if (!isCompareMode || compareYears.length < 2) return data.growth;
-    return data.growth.filter((row: any) => compareYears.includes(row.year));
+    return data.growth.filter((row: Record<string, unknown>) => compareYears.includes(String(row.year || '')));
   }, [data?.growth, isCompareMode, compareYears]);
 
   // Table filtering and search states
@@ -180,38 +180,38 @@ export const OverallDashboard: React.FC = () => {
 
       // 2. Filter datasets by selected batch year (or all years if 'All')
       const filteredStudents = numericYear
-        ? rawStudents.filter((s: any) => s.batch_year === numericYear)
+        ? rawStudents.filter((s: Record<string, unknown>) => s.batch_year === numericYear)
         : rawStudents;
 
       const filteredPlacements = numericYear
-        ? rawPlacements.filter((p: any) => (p.batch_year === numericYear || p.year === numericYear))
+        ? rawPlacements.filter((p: Record<string, unknown>) => (p.batch_year === numericYear || p.year === numericYear))
         : rawPlacements;
 
       const filteredCompanies = numericYear
-        ? rawCompanies.filter((c: any) => c.drive_date && new Date(c.drive_date).getFullYear() === numericYear)
+        ? rawCompanies.filter((c: Record<string, unknown>) => c.drive_date && new Date(String(c.drive_date)).getFullYear() === numericYear)
         : rawCompanies;
 
       const filteredHrContacts = numericYear
-        ? rawHrContacts.filter((h: any) => h.batch_year === numericYear)
+        ? rawHrContacts.filter((h: Record<string, unknown>) => h.batch_year === numericYear)
         : rawHrContacts;
 
       // Map training records strictly against the current active batch's register numbers
-      const studentRegs = new Set(filteredStudents.map((s: any) => s.reg_no));
-      const filteredTraining = rawTrainingDetails.filter((t: any) => studentRegs.has(t.reg_no));
+      const studentRegs = new Set(filteredStudents.map((s: Record<string, unknown>) => s.reg_no));
+      const filteredTraining = rawTrainingDetails.filter((t: Record<string, unknown>) => studentRegs.has(t.reg_no));
 
       // Calculate statistics for Sheet 1
       const totalStudentsCount = filteredStudents.length;
-      const placedCount = filteredStudents.filter((s: any) => s.placement_status === 'Placed').length;
+      const placedCount = filteredStudents.filter((s: Record<string, unknown>) => s.placement_status === 'Placed').length;
       const unplacedCount = totalStudentsCount - placedCount;
       const rateStr = totalStudentsCount > 0 ? ((placedCount / totalStudentsCount) * 100).toFixed(2) + '%' : '0.00%';
 
-      const packages = filteredPlacements.map((p: any) => Number(p.package) || 0).filter(p => p > 0);
+      const packages = filteredPlacements.map((p: Record<string, unknown>) => Number(p.package) || 0).filter(p => p > 0);
       const avgPackageStr = packages.length > 0 ? (packages.reduce((sum, p) => sum + p, 0) / packages.length).toFixed(2) + ' LPA' : '0.00 LPA';
       const highestPackageStr = packages.length > 0 ? Math.max(...packages).toFixed(2) + ' LPA' : '0.00 LPA';
 
       const wb = XLSX.utils.book_new();
 
-      const autoWidths = (dataRows: any[]) => {
+      const autoWidths = (dataRows: Record<string, unknown>[]) => {
         if (dataRows.length === 0) return [{ wch: 25 }];
         const keys = Object.keys(dataRows[0]);
         return keys.map(key => {
@@ -226,7 +226,7 @@ export const OverallDashboard: React.FC = () => {
         });
       };
 
-      const createSheetWithRecords = (sheetName: string, dataArray: any[], mapper: (item: any) => any) => {
+      function createSheetWithRecords<T>(sheetName: string, dataArray: T[], mapper: (item: T) => Record<string, unknown>) {
         let ws;
         if (dataArray.length === 0) {
           const emptyRows = [{ "Status": "No Records Available" }];
@@ -245,7 +245,7 @@ export const OverallDashboard: React.FC = () => {
           }];
         }
         XLSX.utils.book_append_sheet(wb, ws, sheetName);
-      };
+      }
 
       // Sheet 1: Summary Statistics (always populated)
       const summaryRows = [{
@@ -270,55 +270,59 @@ export const OverallDashboard: React.FC = () => {
       XLSX.utils.book_append_sheet(wb, wsSummary, "Summary");
 
       // Sheet 2: Students
-      createSheetWithRecords("Students", filteredStudents, (s: any) => ({
-        "Reg No": s.reg_no,
-        "Name": s.name,
-        "Department": s.department,
-        "CGPA": s.cgpa,
-        "Arrears": s.arrears,
-        "Skills": s.skills?.join(', ') || '',
-        "Placement Status": s.placement_status
+      createSheetWithRecords("Students", filteredStudents, (s: Record<string, unknown>) => ({
+        "Reg No": String(s.reg_no || ''),
+        "Name": String(s.name || ''),
+        "Department": String(s.department || ''),
+        "CGPA": s.cgpa as number,
+        "Arrears": s.arrears as number,
+        "Skills": Array.isArray(s.skills) ? s.skills.join(', ') : '',
+        "Placement Status": String(s.placement_status || '')
       }));
 
       // Sheet 3: Placements
-      createSheetWithRecords("Placements", filteredPlacements, (p: any) => ({
-        "Reg No": p.reg_no,
-        "Student Name": p.name,
-        "Company": p.company,
-        "Role": p.role || 'Associate Software Engineer',
-        "Package": `${p.package} LPA`,
-        "Placement Status": p.placement_status || 'Placed'
+      createSheetWithRecords("Placements", filteredPlacements, (p: Record<string, unknown>) => ({
+        "Reg No": String(p.reg_no || ''),
+        "Student Name": String(p.name || ''),
+        "Company": String(p.company || ''),
+        "Role": String(p.role || 'Associate Software Engineer'),
+        "Package": `${p.package || 0} LPA`,
+        "Placement Status": String(p.placement_status || 'Placed')
       }));
 
       // Sheet 4: Companies
-      createSheetWithRecords("Companies", filteredCompanies, (c: any) => ({
-        "Company Name": c.company_name,
-        "Role Offered": c.role || 'N/A',
-        "Package": `${c.package} LPA`,
-        "Drive Date": c.drive_date ? new Date(c.drive_date).toISOString().split('T')[0] : 'N/A',
-        "Status": c.status
+      createSheetWithRecords("Companies", filteredCompanies, (c: Record<string, unknown>) => ({
+        "Company Name": String(c.company_name || ''),
+        "Role Offered": String(c.role || 'N/A'),
+        "Package": `${c.package || 0} LPA`,
+        "Drive Date": c.drive_date ? new Date(String(c.drive_date)).toISOString().split('T')[0] : 'N/A',
+        "Status": String(c.status || '')
       }));
 
       // Sheet 5: HR Contacts
-      createSheetWithRecords("HR Contacts", filteredHrContacts, (h: any) => ({
-        "HR Name": h.hr_name,
-        "Company": h.company_name,
-        "Email": h.email,
-        "Phone": h.phone || 'N/A',
-        "Notes": h.notes || ''
+      createSheetWithRecords("HR Contacts", filteredHrContacts, (h: Record<string, unknown>) => ({
+        "HR Name": String(h.hr_name || ''),
+        "Company": String(h.company_name || ''),
+        "Email": String(h.email || ''),
+        "Phone": String(h.phone || 'N/A'),
+        "Notes": String(h.notes || '')
       }));
 
       // Sheet 6: Training Records
-      createSheetWithRecords("Training Records", filteredTraining, (t: any) => {
-        const readiness = (t.aptitude_score * 0.25) + (t.coding_score * 0.35) + (t.communication_score * 0.20) + (t.mock_interview_score * 0.20);
+      createSheetWithRecords("Training Records", filteredTraining, (t: Record<string, unknown>) => {
+        const aptitude = Number(t.aptitude_score || 0);
+        const coding = Number(t.coding_score || 0);
+        const communication = Number(t.communication_score || 0);
+        const mock = Number(t.mock_interview_score || 0);
+        const readiness = (aptitude * 0.25) + (coding * 0.35) + (communication * 0.20) + (mock * 0.20);
         return {
-          "Reg No": t.reg_no,
-          "Name": t.name,
-          "Aptitude Score": t.aptitude_score,
-          "Coding Score": t.coding_score,
-          "Communication Score": t.communication_score,
-          "Mock Interview Score": t.mock_interview_score,
-          "Attendance": t.attendance,
+          "Reg No": String(t.reg_no || ''),
+          "Name": String(t.name || ''),
+          "Aptitude Score": aptitude,
+          "Coding Score": coding,
+          "Communication Score": communication,
+          "Mock Interview Score": mock,
+          "Attendance": Number(t.attendance || 0),
           "Readiness Score": `${readiness.toFixed(1)}%`
         };
       });
@@ -330,7 +334,7 @@ export const OverallDashboard: React.FC = () => {
       setToastMessage(`✓ Placement_Report_${yearStr}.xlsx downloaded successfully!`);
       setShowToast(true);
       setTimeout(() => setShowToast(false), 5000);
-    } catch (err: any) {
+    } catch (err) {
       console.error("Failed to generate excel export:", err);
       setToastMessage("✕ Failed to export placement report. Please check connections.");
       setShowToast(true);
@@ -536,7 +540,7 @@ export const OverallDashboard: React.FC = () => {
                   isAnimationActive
                 >
                   <LabelList position="right" fill="#475569" stroke="none" dataKey="name" fontSize={10} />
-                  {data.funnel.map((_entry: any, index: number) => (
+                  {data.funnel.map((_entry: { name: string; value: number; percentage: number }, index: number) => (
                     <Cell key={`cell-${index}`} fill={funnelColors[index % funnelColors.length]} />
                   ))}
                 </Funnel>

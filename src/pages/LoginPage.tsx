@@ -5,6 +5,7 @@ import { z } from 'zod';
 import { useAuthStore } from '../store/useAuthStore';
 import type { UserRole } from '../types';
 import { GraduationCap, Shield, UserCheck, KeyRound, Mail, Lock, AlertCircle } from 'lucide-react';
+import type { LucideIcon } from 'lucide-react';
 
 // Define Zod validation schema for login
 const loginSchema = z.object({
@@ -19,7 +20,8 @@ export const LoginPage: React.FC = () => {
   const navigate = useNavigate();
   const location = useLocation();
 
-  const from = (location.state as any)?.from?.pathname || "/dashboard/overall";
+  const state = location.state as { from?: { pathname?: string } } | null;
+  const from = state?.from?.pathname || "/dashboard/overall";
 
   React.useEffect(() => {
     if (isAuthenticated && !token) {
@@ -48,7 +50,7 @@ export const LoginPage: React.FC = () => {
   });
 
   // Map demo emails to their roles
-  const demoAccounts: { email: string; role: UserRole; label: string; desc: string; icon: any; color: string }[] = [
+  const demoAccounts: { email: string; role: UserRole; label: string; desc: string; icon: LucideIcon; color: string }[] = [
     {
       email: 'admin@placement.edu',
       role: 'overall',
@@ -88,7 +90,7 @@ export const LoginPage: React.FC = () => {
     const validationResult = loginSchema.safeParse(data);
     if (!validationResult.success) {
       validationResult.error.errors.forEach(err => {
-        setError(err.path[0] as any, { type: 'manual', message: err.message });
+        setError(err.path[0] as keyof LoginFields, { type: 'manual', message: err.message });
       });
       return;
     }

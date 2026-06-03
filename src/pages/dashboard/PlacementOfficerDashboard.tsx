@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useEffect, useRef } from 'react';
+import React, { useState, useMemo, useEffect, useRef, useCallback } from 'react';
 import { useCompaniesQuery, useHRQuery, useDrivesQuery, usePlacementsQuery, useStudentFilterQuery, useAddHRMutation, useUpdateHRMutation, useDeleteHRMutation } from '../../hooks/useOfficerData';
 import type { Company } from '../../types';
 import { useMetadataQuery } from '../../hooks/useMetadata';
@@ -46,9 +46,73 @@ const companySchema = z.object({
   location: z.string().min(2, "Location is required"),
 });
 
+interface OfficerHrContact {
+  id: string;
+  name: string;
+  company: string;
+  email: string;
+  phone: string;
+  designation: string;
+  notes: string;
+  batchYear?: string | number;
+}
+
+interface OfficerDrive {
+  id: string;
+  title: string;
+  company: string;
+  date: string;
+  status: string;
+}
+
+interface OfficerKanbanStudent {
+  id: string;
+  name: string;
+  regNo: string;
+  dept: string;
+  company: string;
+  role: string;
+  package: string;
+  packageOffer: string;
+  year: string;
+  batchYear: string;
+  stage: string;
+  placementStatus: string;
+}
+
+interface OfficerImportedRow {
+  regNo: string;
+  name: string;
+  dept: string;
+  batch_year: number;
+  cgpa: number;
+  arrears: number;
+  skills: string[];
+  skillsString: string;
+  company_name: string;
+  role: string;
+  packageVal: number;
+  placement_status: string;
+  drive_date: string;
+  hr_name: string;
+  hr_email: string;
+  hr_phone: string;
+  validation: {
+    regNo: boolean;
+    name: boolean;
+    dept: boolean;
+    batch_year: boolean;
+    cgpa: boolean;
+    arrears: boolean;
+    company: boolean;
+    email: boolean;
+  };
+  hasError: boolean;
+  isDuplicate?: boolean;
+}
+
 export const PlacementOfficerDashboard: React.FC = () => {
   const { selectedYear } = useAuthStore();
-  console.log('selectedYear', selectedYear);
   const { data: initCompanies, refetch: refetchCompanies } = useCompaniesQuery(selectedYear);
   const { data: initHRs } = useHRQuery(selectedYear);
   const addHRMutation = useAddHRMutation();
@@ -66,9 +130,9 @@ export const PlacementOfficerDashboard: React.FC = () => {
   const [activeTab, setActiveTab] = useState<'students' | 'companies' | 'hr' | 'eligibility' | 'kanban' | 'import'>('companies');
 
   // Reactive State derived from Queries
-  const [hrs, setHRs] = useState<any[]>([]);
-  const [drives, setDrives] = useState<any[]>([]);
-  const [kanbanStudents, setKanbanStudents] = useState<any[]>([]);
+  const [hrs, setHRs] = useState<OfficerHrContact[]>([]);
+  const [drives, setDrives] = useState<OfficerDrive[]>([]);
+  const [kanbanStudents, setKanbanStudents] = useState<OfficerKanbanStudent[]>([]);
 
   useEffect(() => {
     if (initHRs) setHRs(initHRs);
@@ -88,7 +152,7 @@ export const PlacementOfficerDashboard: React.FC = () => {
   const [showAddCompany, setShowAddCompany] = useState(false);
   const [editingCompany, setEditingCompany] = useState<Company | null>(null);
   const [deleteTargetCompany, setDeleteTargetCompany] = useState<Company | null>(null);
-  const [formErrors, setFormErrors] = useState<any>({});
+  const [formErrors, setFormErrors] = useState<Record<string, string>>({});
   
   // Form values (Add/Edit Company)
   const [companyForm, setCompanyForm] = useState({
@@ -99,7 +163,27 @@ export const PlacementOfficerDashboard: React.FC = () => {
     if (departments.length > 0 && !departments.includes(companyForm.dept)) {
       setCompanyForm(prev => ({ ...prev, dept: departments[0] }));
     }
+  }, [departments, companyForm.dept]);
+
+  const handleEditClick = useCallback((comp: Company) => {
+    setEditingCompany(comp);
+    setCompanyForm({
+      name: comp.name,
+      role: comp.role || '',
+      package: (comp.package || comp.packageOffer || '').replace(' LPA', ''),
+      cgpa: '6.0',
+      arrears: '0',
+      dept: comp.dept || departments[0] || 'CSE',
+      skills: 'React, Node',
+      driveDate: comp.driveDate,
+      location: 'Campus'
+    });
+    setShowAddCompany(true);
   }, [departments]);
+
+  const handleDeleteCompany = useCallback((company: Company) => {
+    setDeleteTargetCompany(company);
+  }, []);
 
   // A) TanStack Table pagination configuration
   const columns = useMemo<ColumnDef<Company>[]>(() => [
@@ -166,7 +250,7 @@ export const PlacementOfficerDashboard: React.FC = () => {
         );
       }
     }
-  ], []);
+  ], [handleEditClick, handleDeleteCompany]);
 
   const table = useReactTable({
     data: initCompanies || [],
@@ -191,7 +275,7 @@ export const PlacementOfficerDashboard: React.FC = () => {
     e.preventDefault();
     const result = companySchema.safeParse(companyForm);
     if (!result.success) {
-      const fieldErrors: any = {};
+      const fieldErrors: Record<string, string> = {};
       result.error.errors.forEach(err => {
         fieldErrors[err.path[0]] = err.message;
       });
@@ -225,31 +309,14 @@ export const PlacementOfficerDashboard: React.FC = () => {
       setEditingCompany(null);
       setCompanyForm({ name: '', role: '', package: '', cgpa: '6.0', arrears: '0', dept: departments[0] || 'CSE', skills: '', driveDate: '', location: '' });
       setShowAddCompany(false);
-    } catch (error: any) {
-      const message = error?.response?.data?.message || error?.message || 'Failed to save company';
+    } catch (error) {
+      const err = error as { response?: { data?: { message?: string } }; message?: string };
+      const message = err?.response?.data?.message || err?.message || 'Failed to save company';
       setFormErrors({ submit: message });
     }
   };
 
-  const handleEditClick = (comp: Company) => {
-    setEditingCompany(comp);
-    setCompanyForm({
-      name: comp.name,
-      role: comp.role || '',
-      package: (comp.package || comp.packageOffer || '').replace(' LPA', ''),
-      cgpa: '6.0',
-      arrears: '0',
-      dept: (comp as any).dept || departments[0] || 'CSE',
-      skills: 'React, Node',
-      driveDate: comp.driveDate,
-      location: 'Campus'
-    });
-    setShowAddCompany(true);
-  };
 
-  const handleDeleteCompany = (company: Company) => {
-    setDeleteTargetCompany(company);
-  };
 
   const confirmDeleteCompany = async () => {
     if (!deleteTargetCompany) return;
@@ -264,8 +331,9 @@ export const PlacementOfficerDashboard: React.FC = () => {
       await refetchCompanies();
 
       setDeleteTargetCompany(null);
-    } catch (error: any) {
-      const message = error?.response?.data?.message || error?.message || 'Failed to delete company';
+    } catch (error) {
+      const err = error as { response?: { data?: { message?: string } }; message?: string };
+      const message = err?.response?.data?.message || err?.message || 'Failed to delete company';
       setFormErrors({ submit: message });
       setDeleteTargetCompany(null);
     }
@@ -353,7 +421,7 @@ export const PlacementOfficerDashboard: React.FC = () => {
     if (departments.length > 0 && filterDepts.length === 0) {
       setFilterDepts(departments.slice(0, 2));
     }
-  }, [departments]);
+  }, [departments, filterDepts.length]);
   const [filterSkills, setFilterSkills] = useState('');
 
   const parsedSkills = useMemo(() => {
@@ -372,7 +440,7 @@ export const PlacementOfficerDashboard: React.FC = () => {
     if (!filterResult?.students) return;
     const wb = XLSX.utils.book_new();
     const ws = XLSX.utils.json_to_sheet(
-      filterResult.students.map((s: any) => ({
+      filterResult.students.map((s: { name: string; dept: string; cgpa: number; arrears: number; skills: string[] }) => ({
         "Student Name": s.name,
         "Department": s.dept,
         "CGPA Score": s.cgpa,
@@ -391,7 +459,7 @@ export const PlacementOfficerDashboard: React.FC = () => {
   };
 
   // H) Drag and Drop Spreadsheet Importer Preview States
-  const [importedRows, setImportedRows] = useState<any[]>([]);
+  const [importedRows, setImportedRows] = useState<OfficerImportedRow[]>([]);
   const [isDragging, setIsDragging] = useState(false);
   const [uploadedFilename, setUploadedFilename] = useState<string>('');
   const [activeFile, setActiveFile] = useState<File | null>(null);
@@ -456,7 +524,7 @@ export const PlacementOfficerDashboard: React.FC = () => {
       const data = e.target?.result;
       if (!data) return;
       try {
-        let rawRows: any[] = [];
+        let rawRows: Record<string, unknown>[] = [];
         if (isJson) {
           const text = typeof data === 'string' ? data : new TextDecoder().decode(data);
           const parsed = JSON.parse(text);
@@ -465,10 +533,10 @@ export const PlacementOfficerDashboard: React.FC = () => {
           const workbook = XLSX.read(data, { type: 'array' });
           const firstSheetName = workbook.SheetNames[0];
           const worksheet = workbook.Sheets[firstSheetName];
-          rawRows = XLSX.utils.sheet_to_json<any>(worksheet);
+          rawRows = XLSX.utils.sheet_to_json<Record<string, unknown>>(worksheet);
         }
 
-        const parsed = rawRows.map((row: any) => {
+        const parsed = rawRows.map((row: Record<string, unknown>) => {
           const getVal = (possibleKeys: string[]) => {
             const key = Object.keys(row).find(k => 
               possibleKeys.some(pk => k.toLowerCase().replace(/[\s_.-]/g, '') === pk.toLowerCase().replace(/[\s_.-]/g, ''))
@@ -496,13 +564,13 @@ export const PlacementOfficerDashboard: React.FC = () => {
           const regNo = regNoRaw ? String(regNoRaw).trim() : '';
           const name = nameRaw ? String(nameRaw).trim() : '';
           const dept = deptRaw ? String(deptRaw).trim().toUpperCase() : '';
-          const batch_year = batchYearRaw !== undefined ? parseInt(batchYearRaw, 10) : NaN;
-          const cgpa = cgpaRaw !== undefined ? parseFloat(cgpaRaw) : NaN;
-          const arrears = arrearsRaw !== undefined ? parseInt(arrearsRaw, 10) : NaN;
+          const batch_year = batchYearRaw !== undefined ? parseInt(String(batchYearRaw), 10) : NaN;
+          const cgpa = cgpaRaw !== undefined ? parseFloat(String(cgpaRaw)) : NaN;
+          const arrears = arrearsRaw !== undefined ? parseInt(String(arrearsRaw), 10) : NaN;
           
           const company_name = companyRaw ? String(companyRaw).trim() : '';
           const role = roleRaw ? String(roleRaw).trim() : '';
-          const packageVal = packageRaw !== undefined ? parseFloat(packageRaw) : NaN;
+          const packageVal = packageRaw !== undefined ? parseFloat(String(packageRaw)) : NaN;
           const placement_status = statusRaw ? String(statusRaw).trim() : '';
           const drive_date = driveDateRaw ? String(driveDateRaw).trim() : '';
           const hr_name = hrNameRaw ? String(hrNameRaw).trim() : '';
@@ -1410,7 +1478,7 @@ export const PlacementOfficerDashboard: React.FC = () => {
                 </thead>
                 <tbody className="divide-y divide-slate-100 text-slate-700">
                   {filterResult?.students && filterResult.students.length > 0 ? (
-                    filterResult.students.map((student: any, idx: number) => (
+                    filterResult.students.map((student: { name: string; dept: string; cgpa: number; arrears: number; skills: string[] }, idx: number) => (
                       <tr key={idx} className="hover:bg-slate-50/50 transition-colors">
                         <td className="px-6 py-3 font-bold text-slate-850">{student.name}</td>
                         <td className="px-6 py-3">

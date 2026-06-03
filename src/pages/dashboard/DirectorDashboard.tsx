@@ -29,7 +29,7 @@ export const DirectorDashboard: React.FC = () => {
   const deptKeys = React.useMemo(() => {
     if (!yearlyData || yearlyData.length === 0) return [];
     const keys = new Set<string>();
-    yearlyData.forEach((row: any) => {
+    yearlyData.forEach((row: Record<string, unknown>) => {
       Object.keys(row).forEach((k) => {
         if (k !== 'year') {
           keys.add(k);
@@ -41,7 +41,7 @@ export const DirectorDashboard: React.FC = () => {
 
   const yearText = React.useMemo(() => {
     if (!yearlyData || yearlyData.length === 0) return '';
-    const years = yearlyData.map((d: any) => d.year).sort();
+    const years = yearlyData.map((d: Record<string, unknown>) => String(d.year || '')).sort();
     if (years.length <= 1) return years[0] || '';
     return `${years.slice(0, -1).join(', ')} and ${years[years.length - 1]}`;
   }, [yearlyData]);
@@ -65,11 +65,11 @@ export const DirectorDashboard: React.FC = () => {
     
     // Map of name -> average package
     const pkgMap: Record<string, number> = {};
-    statsData.deptPackages.forEach((p: any) => {
+    statsData.deptPackages.forEach((p: { name: string; avgPkg: number }) => {
       pkgMap[p.name] = p.avgPkg;
     });
 
-    const depts = statsData.deptPerformance.map((d: any) => {
+    const depts = statsData.deptPerformance.map((d: { department: string; placed: number; total: number; percentage: number; topCompany: string; highestPackage: string }) => {
       return {
         name: d.department,
         code: d.department,
@@ -309,7 +309,7 @@ export const DirectorDashboard: React.FC = () => {
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100 text-slate-700">
-                {statsData.deptPerformance.map((dept: any, index: number) => {
+                {statsData.deptPerformance.map((dept: { department: string; placed: number; total: number; percentage: number; topCompany: string; highestPackage: string }, index: number) => {
                   const rate = dept.percentage;
                   // Color coding: green >= 85%, blue 70%-85%, red < 70%
                   const badgeClass = 

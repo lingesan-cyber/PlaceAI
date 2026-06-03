@@ -8,7 +8,7 @@ interface TrainingFormatGuideModalProps {
 // ── Tokenizer (same robust single-pass approach as FormatGuideModal) ──────────
 function tokenizeLine(line: string): React.ReactNode[] {
   const TOKEN_RE =
-    /("(?:[^"\\]|\\.)*")(\s*:)|:\s*("(?:[^"\\]|\\.)*")|:\s*(-?\d+\.?\d*(?:[eE][+-]?\d+)?)|:\s*(true|false|null)|([\[\]{},])/g;
+    /("(?:[^"\\]|\\.)*")(\s*:)|:\s*("(?:[^"\\]|\\.)*")|:\s*(-?\d+\.?\d*(?:[eE][+-]?\d+)?)|:\s*(true|false|null)|([[\]{},])/g;
   const nodes: React.ReactNode[] = [];
   let cursor = 0;
   let match: RegExpExecArray | null;

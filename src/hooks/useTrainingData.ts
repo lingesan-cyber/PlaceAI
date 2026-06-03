@@ -16,13 +16,30 @@ export interface TrainingStudent {
 }
 
 export interface TrainingAnalysis {
-  radarData: any[];
+  radarData: Record<string, unknown>[];
+}
+
+interface RawTrainingRecord {
+  _id?: string;
+  name?: string;
+  reg_no?: string;
+  department?: string;
+  aptitude_score?: number;
+  aptitude?: number;
+  coding_score?: number;
+  coding?: number;
+  communication_score?: number;
+  communication?: number;
+  mock_interview_score?: number;
+  mockInterview?: number;
+  attendance?: number;
+  [key: string]: unknown;
 }
 
 /**
  * Calculates readiness details for a student record
  */
-export const calculateReadiness = (s: any): { avgScore: number; readinessLevel: TrainingStudent['readinessLevel'] } => {
+export const calculateReadiness = (s: RawTrainingRecord): { avgScore: number; readinessLevel: TrainingStudent['readinessLevel'] } => {
   const apt = Number(s.aptitude_score || s.aptitude || 0);
   const cod = Number(s.coding_score || s.coding || 0);
   const comm = Number(s.communication_score || s.communication || 0);
@@ -53,18 +70,18 @@ export const useTrainingStudentsQuery = () => {
       const response = await apiClient.get('/training-details');
       const records = response.data?.data || [];
 
-      return records.map((r: any) => {
+      return records.map((r: RawTrainingRecord) => {
         const { avgScore, readinessLevel } = calculateReadiness(r);
         return {
-          id: r._id,
-          name: r.name,
-          regNo: r.reg_no,
-          dept: r.department,
-          aptitude: r.aptitude_score,
-          coding: r.coding_score,
-          communication: r.communication_score,
-          mockInterview: r.mock_interview_score,
-          attendance: r.attendance,
+          id: r._id || '',
+          name: r.name || '',
+          regNo: r.reg_no || '',
+          dept: r.department || '',
+          aptitude: r.aptitude_score || 0,
+          coding: r.coding_score || 0,
+          communication: r.communication_score || 0,
+          mockInterview: r.mock_interview_score || 0,
+          attendance: r.attendance || 0,
           avgScore,
           readinessLevel
         };
@@ -93,7 +110,7 @@ export const useTrainingAnalysisQuery = () => {
         attendance: number[];
       }> = {};
 
-      records.forEach((r: any) => {
+      records.forEach((r: RawTrainingRecord) => {
         const d = r.department || 'Unknown';
         if (!deptsMap[d]) {
           deptsMap[d] = { aptitude: [], coding: [], communication: [], mock: [], attendance: [] };
@@ -116,7 +133,7 @@ export const useTrainingAnalysisQuery = () => {
 
       // Calculate averages per department for each subject
       const radarData = subjects.map(sub => {
-        const row: Record<string, any> = { subject: sub.name };
+        const row: Record<string, unknown> = { subject: sub.name };
         deptsList.forEach(dept => {
           const scores = deptsMap[dept][sub.key as keyof typeof deptsMap[string]] || [];
           const avg = scores.length > 0 
@@ -197,7 +214,7 @@ export const useDeleteTrainingMutation = () => {
 export const useImportTrainingMutation = () => {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: async ({ records, policy }: { records: any[]; policy: 'skip' | 'overwrite' }) => {
+    mutationFn: async ({ records, policy }: { records: unknown[]; policy: 'skip' | 'overwrite' }) => {
       const response = await apiClient.post(`/training-details/import?policy=${policy}`, records);
       return response.data;
     },

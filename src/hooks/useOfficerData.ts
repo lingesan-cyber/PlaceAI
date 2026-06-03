@@ -8,7 +8,57 @@ import {
   mapStatus
 } from '../lib/utils';
 
-const mapPlacementStage = (status: any): string => {
+interface PlacementRecord {
+  _id?: string;
+  name?: string;
+  student_name?: string;
+  reg_no?: string;
+  department?: string;
+  company?: string;
+  role?: string;
+  package?: number | string;
+  placement_status?: string;
+  batch_year?: string | number;
+  batchYear?: string | number;
+  year?: string | number;
+  [key: string]: unknown;
+}
+
+interface CompanyRecord {
+  _id?: string;
+  company_name?: string;
+  role?: string;
+  package?: number | string;
+  drive_date?: string;
+  status?: string;
+  [key: string]: unknown;
+}
+
+interface HrRecord {
+  _id?: string;
+  hr_name?: string;
+  company_name?: string;
+  email?: string;
+  phone?: string;
+  designation?: string;
+  notes?: string;
+  batch_year?: string | number;
+}
+
+interface StudentRecord {
+  _id?: string;
+  name?: string;
+  department?: string;
+  cgpa?: number;
+  arrears?: number;
+  skills?: string[];
+  reg_no?: string;
+  company?: string;
+  placement_status?: string;
+  [key: string]: unknown;
+}
+
+const mapPlacementStage = (status: unknown): string => {
   const normalized = normalizePlacementStatus(status);
   if (normalized === 'placed' || normalized === 'selected') return 'Selected';
   if (normalized === 'shortlisted') return 'Shortlisted';
@@ -28,16 +78,16 @@ export const usePlacementsQuery = (year: string) => {
       const isAllYears = !year || year.toLowerCase() === 'all';
       const filteredPlacements = isAllYears
         ? placements
-        : placements.filter((placement: any) => normalizeBatchYear(placement) === String(year));
+        : placements.filter((placement: PlacementRecord) => normalizeBatchYear(placement) === String(year));
 
       // temporary debug logs removed; use React Query DevTools if needed
 
-      return filteredPlacements.map((placement: any, index: number) => ({
+      return filteredPlacements.map((placement: PlacementRecord, index: number) => ({
         id: placement._id || String(index + 1),
         name: placement.name ?? placement.student_name ?? '',
-        regNo: placement.reg_no,
-        dept: placement.department,
-        company: placement.company,
+        regNo: placement.reg_no || '',
+        dept: placement.department || '',
+        company: placement.company || '',
         role: placement.role || '',
         package: `${placement.package || 0} LPA`,
         packageOffer: `${placement.package || 0} LPA`,
@@ -68,14 +118,14 @@ export const useCompaniesQuery = (year: string) => {
 
       // temporary debug logs removed; use React Query DevTools if needed
 
-      return filteredCompanies.map((c: any) => ({
+      return filteredCompanies.map((c: CompanyRecord) => ({
         id: c._id || '',
         name: c.company_name || '',
         role: c.role || 'Campus Drive',
         package: `${c.package || 0} LPA`,
         packageOffer: `${c.package || 0} LPA`,
         driveDate: c.drive_date ? new Date(c.drive_date).toISOString().split('T')[0] : '',
-        status: mapStatus(c.status)
+        status: mapStatus(c.status || '')
       }));
     },
     staleTime: 5 * 60 * 1000,
@@ -89,11 +139,11 @@ export const useHRQuery = (year: string) => {
     queryFn: async () => {
       const response = await apiClient.get(`/hr-contacts?year=${year}`);
       const payload = response.data?.data || [];
-      return payload.map((c: any) => ({
-        id: c._id,
-        name: c.hr_name,
-        company: c.company_name,
-        email: c.email,
+      return payload.map((c: HrRecord) => ({
+        id: c._id || '',
+        name: c.hr_name || '',
+        company: c.company_name || '',
+        email: c.email || '',
         phone: c.phone || '',
         designation: c.designation || 'Talent Acquisition Head',
         notes: c.notes || '',
@@ -178,10 +228,10 @@ export const useDrivesQuery = (year: string) => {
       // temporary debug logs removed; use React Query DevTools if needed
 
       return filteredCompanies
-        .map((c: any, index: number) => ({
+        .map((c: CompanyRecord, index: number) => ({
           id: c._id || String(index + 1),
           title: `${c.company_name} Off-Campus Placement Drive`,
-          company: c.company_name,
+          company: c.company_name || '',
           date: c.drive_date ? new Date(c.drive_date).toISOString().split('T')[0] : '',
           status: c.status || 'Active'
         }));
@@ -209,27 +259,37 @@ export const useStudentFilterQuery = (
       const isAllYears = !year || year.toLowerCase() === 'all';
       const filteredStudents = isAllYears
         ? students
-        : students.filter((student: any) => normalizeBatchYear(student) === String(year));
+        : students.filter((student: StudentRecord) => normalizeBatchYear(student) === String(year));
 
       // temporary debug logs removed; use React Query DevTools if needed
 
-      const studentsResult = filteredStudents.map((p: any, index: number) => {
-        const cgpa = typeof p.cgpa === 'number' ? parseFloat(p.cgpa.toFixed ? p.cgpa.toFixed(2) : String(p.cgpa)) : -1; // -1 indicates missing
-        const arrears = typeof p.arrears === 'number' ? p.arrears : Number.POSITIVE_INFINITY; // Infinity indicates missing
-        const skills = Array.isArray(p.skills) ? p.skills : [];
+      const studentsResult = filteredStudents.map((p: StudentRecord, index: number) => {
+        const cgpaVal = typeof p.cgpa === 'number' ? parseFloat(p.cgpa.toFixed ? p.cgpa.toFixed(2) : String(p.cgpa)) : -1; // -1 indicates missing
+        const arrearsVal = typeof p.arrears === 'number' ? p.arrears : Number.POSITIVE_INFINITY; // Infinity indicates missing
+        const skillsVal = Array.isArray(p.skills) ? p.skills : [];
 
         return {
           id: p._id || String(index + 1),
-          name: p.name,
-          dept: p.department,
-          cgpa,
-          arrears,
-          skills,
-          regNo: p.reg_no,
-          company: p.company,
+          name: p.name || '',
+          dept: p.department || '',
+          cgpa: cgpaVal,
+          arrears: arrearsVal,
+          skills: skillsVal,
+          regNo: p.reg_no || '',
+          company: p.company as string | undefined,
           status: p.placement_status || 'Applied'
         };
-      }).filter((s: any) => {
+      }).filter((s: {
+        id: string;
+        name: string;
+        dept: string;
+        cgpa: number;
+        arrears: number;
+        skills: string[];
+        regNo: string;
+        company?: string;
+        status: string;
+      }) => {
         if (s.cgpa < cgpa) return false;
         if (s.arrears > arrears) return false;
         if (depts.length > 0 && !depts.includes(s.dept)) return false;

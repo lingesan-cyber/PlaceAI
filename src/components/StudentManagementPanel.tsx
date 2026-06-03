@@ -77,19 +77,12 @@ export const StudentManagementPanel: React.FC<StudentManagementPanelProps> = ({ 
       const filteredStudents = selectedYear.toLowerCase() === 'all'
         ? studentsList
         : studentsList.filter((student: StudentRecord) => normalizeBatchYear(student) === String(selectedYear));
-
-      console.log('selectedYear', selectedYear);
-      console.log('[StudentManagementPanel]', {
-        selectedYear,
-        filteredStudentsLength: filteredStudents.length,
-      });
-
       return filteredStudents;
     },
     staleTime: 5 * 60 * 1000,
   });
 
-  const students = data || [];
+  const students = useMemo(() => data || [], [data]);
 
   const departments = useMemo(() => {
     return ['All', ...Array.from(new Set(students.map((student) => student.department))).sort()];
@@ -170,8 +163,9 @@ export const StudentManagementPanel: React.FC<StudentManagementPanelProps> = ({ 
 
       await queryClient.invalidateQueries({ queryKey: ['students-management'] });
       resetForm();
-    } catch (error: any) {
-      setFormErrors({ submit: error?.response?.data?.message || error?.message || 'Failed to save student' });
+    } catch (error) {
+      const err = error as { response?: { data?: { message?: string } }; message?: string };
+      setFormErrors({ submit: err?.response?.data?.message || err?.message || 'Failed to save student' });
     }
   };
 
@@ -185,8 +179,9 @@ export const StudentManagementPanel: React.FC<StudentManagementPanelProps> = ({ 
       if (viewStudent && (viewStudent._id || viewStudent.id) === studentId) {
         setViewStudent(null);
       }
-    } catch (error: any) {
-      setFormErrors({ submit: error?.response?.data?.message || error?.message || 'Failed to delete student' });
+    } catch (error) {
+      const err = error as { response?: { data?: { message?: string } }; message?: string };
+      setFormErrors({ submit: err?.response?.data?.message || err?.message || 'Failed to delete student' });
       setDeleteTargetStudent(null);
     }
   };

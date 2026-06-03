@@ -22,10 +22,41 @@ export interface DashboardStats {
 export interface DashboardData {
   year: string;
   stats: DashboardStats;
-  comparison: any[];
-  growth: any[];
+  comparison: Record<string, unknown>[];
+  growth: Record<string, unknown>[];
   funnel: { name: string; value: number; percentage: number }[];
   companies: Company[];
+}
+
+interface StudentRecord {
+  batch_year?: string | number;
+  batchYear?: string | number;
+  year?: string | number;
+  department?: string;
+  dept?: string;
+  [key: string]: unknown;
+}
+
+interface PlacementRecord {
+  batch_year?: string | number;
+  batchYear?: string | number;
+  year?: string | number;
+  placement_status?: string;
+  placementStatus?: string;
+  company?: string;
+  package?: number | string;
+  department?: string;
+  dept?: string;
+  [key: string]: unknown;
+}
+
+interface RawCompany {
+  _id?: string;
+  company_name?: string;
+  status?: string;
+  drive_date?: string;
+  package?: number | string;
+  [key: string]: unknown;
 }
 
 /**
@@ -51,20 +82,20 @@ export const useDashboardData = (year: string) => {
       const isAllYears = !year || year.toLowerCase() === 'all';
       const selectedStudents = isAllYears
         ? rawStudents
-        : rawStudents.filter((student: any) => normalizeBatchYear(student) === String(year));
+        : rawStudents.filter((student: StudentRecord) => normalizeBatchYear(student) === String(year));
 
       const selectedPlacements = isAllYears
         ? rawPlacements
-        : rawPlacements.filter((placement: any) => normalizeBatchYear(placement) === String(year));
+        : rawPlacements.filter((placement: PlacementRecord) => normalizeBatchYear(placement) === String(year));
 
       // temporary debug logs removed; use React Query DevTools if needed
 
       const totalStudents = selectedStudents.length;
-      const placedStudents = selectedPlacements.filter((placement: any) => normalizePlacementStatus(placement) === 'placed').length;
+      const placedStudents = selectedPlacements.filter((placement: PlacementRecord) => normalizePlacementStatus(placement) === 'placed').length;
       const pendingStudents = Math.max(0, totalStudents - placedStudents);
       const companiesVisited = new Set(
         selectedPlacements
-          .map((placement: any) => String(placement.company ?? '').trim())
+          .map((placement: PlacementRecord) => String(placement.company ?? '').trim())
           .filter(Boolean)
       ).size;
       const placementRate = totalStudents > 0
@@ -72,8 +103,8 @@ export const useDashboardData = (year: string) => {
         : 0.0;
 
       const placedPackages = selectedPlacements
-        .filter((placement: any) => normalizePlacementStatus(placement) === 'placed')
-        .map((placement: any) => parsePackageValue(placement.package));
+        .filter((placement: PlacementRecord) => normalizePlacementStatus(placement) === 'placed')
+        .map((placement: PlacementRecord) => parsePackageValue(placement.package));
 
       const avgPackageValue = placedPackages.length > 0
         ? (placedPackages.reduce((sum, value) => sum + value, 0) / placedPackages.length).toFixed(1)
@@ -85,7 +116,7 @@ export const useDashboardData = (year: string) => {
       const batchYears = Array.from(
         new Set(
           [...rawStudents, ...rawPlacements]
-            .map((record: any) => normalizeBatchYear(record))
+            .map((record: StudentRecord | PlacementRecord) => normalizeBatchYear(record))
             .filter(Boolean)
         )
       ).sort((a, b) => b.localeCompare(a));
@@ -93,14 +124,14 @@ export const useDashboardData = (year: string) => {
       const departments = Array.from(
         new Set(
           [...rawStudents, ...rawPlacements]
-            .map((record: any) => normalizeDepartment(record))
+            .map((record: StudentRecord | PlacementRecord) => normalizeDepartment(record))
             .filter(Boolean)
         )
       ).sort();
 
       const studentCountByBatch = new Map<string, number>();
       const studentCountByBatchDept = new Map<string, number>();
-      rawStudents.forEach((student: any) => {
+      rawStudents.forEach((student: StudentRecord) => {
         const batchYear = normalizeBatchYear(student);
         const department = normalizeDepartment(student);
         if (!batchYear) return;
@@ -112,7 +143,7 @@ export const useDashboardData = (year: string) => {
       });
 
       const placementGroups = new Map<string, { count: number; packageValues: number[] }>();
-      rawPlacements.forEach((placement: any) => {
+      rawPlacements.forEach((placement: PlacementRecord) => {
         const batchYear = normalizeBatchYear(placement);
         const department = normalizeDepartment(placement);
         if (!batchYear || !department) return;
@@ -129,7 +160,7 @@ export const useDashboardData = (year: string) => {
       });
 
       const comparison = departments.map((department) => {
-        const row: Record<string, any> = { name: department };
+        const row: Record<string, unknown> = { name: department };
 
         batchYears.forEach((batchYear) => {
           const group = placementGroups.get(`${batchYear}::${department}`);
@@ -147,7 +178,7 @@ export const useDashboardData = (year: string) => {
         .slice()
         .sort((a, b) => a.localeCompare(b))
         .map((batchYear) => {
-          const row: Record<string, any> = { year: batchYear };
+          const row: Record<string, unknown> = { year: batchYear };
 
           departments.forEach((department) => {
             const group = placementGroups.get(`${batchYear}::${department}`);
@@ -188,7 +219,7 @@ export const useDashboardData = (year: string) => {
       console.log(JSON.stringify(growthLogs, null, 2));
 
       const statusCounts: Record<string, number> = {};
-      selectedPlacements.forEach((placement: any) => {
+      selectedPlacements.forEach((placement: PlacementRecord) => {
         const status = normalizePlacementStatus(placement) || 'applied';
         statusCounts[status] = (statusCounts[status] || 0) + 1;
       });
@@ -218,13 +249,13 @@ export const useDashboardData = (year: string) => {
       });
 
       const companySelectionsByName = new Map<string, number>();
-      selectedPlacements.forEach((placement: any) => {
+      selectedPlacements.forEach((placement: PlacementRecord) => {
         const companyName = String(placement.company ?? '').trim();
         if (!companyName || normalizePlacementStatus(placement) !== 'placed') return;
         companySelectionsByName.set(companyName, (companySelectionsByName.get(companyName) || 0) + 1);
       });
 
-      const companies: Company[] = rawCompanies.map((company: any, index: number) => {
+      const companies: Company[] = rawCompanies.map((company: RawCompany, index: number) => {
         const companyName = String(company.company_name ?? '').trim();
 
         return {
@@ -232,7 +263,7 @@ export const useDashboardData = (year: string) => {
           name: companyName,
           package: `${parsePackageValue(company.package)} LPA`,
           packageOffer: `${parsePackageValue(company.package)} LPA`,
-          status: mapStatus(company.status),
+          status: mapStatus(company.status || ''),
           driveDate: company.drive_date ? new Date(company.drive_date).toISOString().split('T')[0] : '',
           selections: companySelectionsByName.get(companyName) || 0
         };

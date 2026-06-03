@@ -61,6 +61,36 @@ interface Student {
   readinessLevel: 'Highly Placeable' | 'Placement Ready' | 'Needs Improvement' | 'High Risk';
 }
 
+interface ImportedTrainingRow {
+  regNo: string;
+  name: string;
+  dept: string;
+  aptitude: number;
+  coding: number;
+  communication: number;
+  mockInterview: number;
+  attendance: number;
+  validation: {
+    regNo: boolean;
+    name: boolean;
+    dept: boolean;
+    aptitude: boolean;
+    coding: boolean;
+    communication: boolean;
+    mockInterview: boolean;
+    attendance: boolean;
+  };
+  hasError: boolean;
+  isDuplicate?: boolean;
+}
+
+interface TrainingImportSummary {
+  inserted?: number;
+  updated?: number;
+  duplicates?: number;
+  invalid?: number;
+}
+
 export const TrainingStaffDashboard: React.FC = () => {
   // Queries
   const { data: students = [], isLoading: loadingStudents, refetch: refetchStudents } = useTrainingStudentsQuery();
@@ -103,7 +133,7 @@ export const TrainingStaffDashboard: React.FC = () => {
     if (departments.length > 0 && !departments.includes(studentForm.dept)) {
       setStudentForm(prev => ({ ...prev, dept: departments[0] }));
     }
-  }, [departments]);
+  }, [departments, studentForm.dept]);
 
   // Search & Filter State
   const [searchTerm, setSearchTerm] = useState('');
@@ -307,9 +337,10 @@ export const TrainingStaffDashboard: React.FC = () => {
 
       refetchStudents();
       refetchAnalysis();
-    } catch (error: any) {
+    } catch (error) {
       console.error(error);
-      alert(error.response?.data?.message || "Failed to save record");
+      const err = error as { response?: { data?: { message?: string } }; message?: string };
+      alert(err.response?.data?.message || "Failed to save record");
     }
   };
 
@@ -360,10 +391,10 @@ export const TrainingStaffDashboard: React.FC = () => {
   const strokeDashoffset = circumference - (activePercent / 100) * circumference;
 
   // Importer state
-  const [importedRows, setImportedRows] = useState<any[]>([]);
+  const [importedRows, setImportedRows] = useState<ImportedTrainingRow[]>([]);
   const [uploadedFilename, setUploadedFilename] = useState<string>('');
   const [duplicatePolicy, setDuplicatePolicy] = useState<'skip' | 'overwrite'>('skip');
-  const [importSummary, setImportSummary] = useState<any | null>(null);
+  const [importSummary, setImportSummary] = useState<TrainingImportSummary | null>(null);
   const [isDragging, setIsDragging] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [showTrainingFormatGuide, setShowTrainingFormatGuide] = useState(false);
@@ -389,7 +420,7 @@ export const TrainingStaffDashboard: React.FC = () => {
       if (!data) return;
 
       try {
-        let rawRows: any[] = [];
+        let rawRows: Record<string, unknown>[] = [];
         if (isJson) {
           const text = typeof data === 'string' ? data : new TextDecoder().decode(data);
           rawRows = JSON.parse(text);
@@ -398,11 +429,11 @@ export const TrainingStaffDashboard: React.FC = () => {
           const workbook = XLSX.read(data, { type: 'array' });
           const firstSheetName = workbook.SheetNames[0];
           const worksheet = workbook.Sheets[firstSheetName];
-          rawRows = XLSX.utils.sheet_to_json<any>(worksheet);
+          rawRows = XLSX.utils.sheet_to_json<Record<string, unknown>>(worksheet);
         }
 
         // Parse & validate row structure
-        const parsed = rawRows.map((row: any) => {
+        const parsed = rawRows.map((row: Record<string, unknown>) => {
           const getVal = (possibleKeys: string[]) => {
             const key = Object.keys(row).find(k => 
               possibleKeys.some(pk => k.toLowerCase().replace(/[\s_.-]/g, '') === pk.toLowerCase().replace(/[\s_.-]/g, ''))

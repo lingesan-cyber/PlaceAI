@@ -1,13 +1,19 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useAuthStore } from '../store/useAuthStore';
 import { Search, Bell, ChevronDown, GitCompare, X, Check, Settings2, LogOut } from 'lucide-react';
-import type { UserRole } from '../types';
+import type { UserRole, DbStudent, DbCompany, DbPlacement, DbHrContact, DbTrainingDetail, GlobalSearchResponse } from '../types';
 import { useYearsStore } from '../store/useYearsStore';
 import { useYearsQuery } from '../hooks/useMetadata';
 import { useQuery } from '@tanstack/react-query';
 import { apiClient } from '../lib/apiClient';
 import { useNavigate } from 'react-router-dom';
 import { BatchManageModal } from './BatchManageModal';
+
+interface StudentProfileDetails {
+  student: DbStudent | null;
+  placement: DbPlacement | null;
+  training: DbTrainingDetail | null;
+}
 
 const dashboardNames: Record<UserRole, string> = {
   overall: 'Overall Analytics',
@@ -67,7 +73,7 @@ export const Topbar: React.FC = () => {
   }, [searchQuery]);
 
   // Live query for global search
-  const { data: globalSearchResults, isLoading: isSearchLoading } = useQuery<any>({
+  const { data: globalSearchResults, isLoading: isSearchLoading } = useQuery<GlobalSearchResponse>({
     queryKey: ['globalSearch', debouncedSearchQuery],
     queryFn: async () => {
       if (debouncedSearchQuery.trim().length < 2) {
@@ -93,7 +99,7 @@ export const Topbar: React.FC = () => {
   });
 
   // Query for fetching a detailed student profile when selected from search
-  const { data: studentProfile, isLoading: isProfileLoading, error: profileError } = useQuery<any>({
+  const { data: studentProfile, isLoading: isProfileLoading, error: profileError } = useQuery<StudentProfileDetails | null>({
     queryKey: ['studentProfile', selectedStudentRegNo],
     queryFn: async () => {
       if (!selectedStudentRegNo) return null;
@@ -103,16 +109,16 @@ export const Topbar: React.FC = () => {
       const student = studentRes.data?.data;
       
       // 2. Fetch placements matching student register number
-      let placements: any[] = [];
+      let placements: DbPlacement[] = [];
       try {
         const placementsRes = await apiClient.get(`/placements?search=${encodeURIComponent(selectedStudentRegNo)}`);
-        placements = placementsRes.data?.data?.placements?.filter((p: any) => p.reg_no === selectedStudentRegNo) || [];
+        placements = placementsRes.data?.data?.placements?.filter((p: DbPlacement) => p.reg_no === selectedStudentRegNo) || [];
       } catch (err) {
         console.log("No placement record found or failed to fetch:", err);
       }
       
       // 3. Fetch training details by register number (gracefully handle 404 not found)
-      let training: any = null;
+      let training: DbTrainingDetail | null = null;
       try {
         const trainingRes = await apiClient.get(`/training-details/reg/${encodeURIComponent(selectedStudentRegNo)}`);
         training = trainingRes.data?.data || null;
@@ -131,7 +137,7 @@ export const Topbar: React.FC = () => {
   });
 
   // Live queries to retrieve search data directly from the MongoDB backend (for notifications and other pages)
-  const { data: companiesList } = useQuery<any[]>({
+  const { data: companiesList } = useQuery<DbCompany[]>({
     queryKey: ['search', 'companies'],
     queryFn: async () => {
       const res = await apiClient.get('/companies');
@@ -199,7 +205,7 @@ export const Topbar: React.FC = () => {
   // Derive notification items from live company data. Do not use hardcoded/mock notifications.
   const notificationItems = React.useMemo(() => {
     const list = companiesList || [];
-    return list.slice(0, 6).map((c: any, i: number) => ({
+    return list.slice(0, 6).map((c: DbCompany, i: number) => ({
       id: `company-${i}`,
       text: `${c.company_name} — ${c.status || 'Status Unknown'}`,
       time: c.drive_date ? new Date(c.drive_date).toLocaleString() : 'TBD'
@@ -269,7 +275,7 @@ export const Topbar: React.FC = () => {
                         <span className="text-[10px] font-black text-blue-600 uppercase tracking-widest">Students</span>
                       </div>
                       <div className="grid grid-cols-1 gap-1">
-                        {globalSearchResults.students.map((s: any) => (
+                        {globalSearchResults.students.map((s: DbStudent) => (
                           <div
                             key={s._id}
                             onClick={() => handleStudentResultClick(s.reg_no)}
@@ -298,7 +304,7 @@ export const Topbar: React.FC = () => {
                         <span className="text-[10px] font-black text-emerald-600 uppercase tracking-widest">Companies</span>
                       </div>
                       <div className="grid grid-cols-1 gap-1">
-                        {globalSearchResults.companies.map((c: any) => (
+                        {globalSearchResults.companies.map((c: DbCompany) => (
                           <div
                             key={c._id}
                             onClick={() => handleResultClick('Companies')}
@@ -327,7 +333,7 @@ export const Topbar: React.FC = () => {
                         <span className="text-[10px] font-black text-purple-600 uppercase tracking-widest">Placements</span>
                       </div>
                       <div className="grid grid-cols-1 gap-1">
-                        {globalSearchResults.placements.map((p: any) => (
+                        {globalSearchResults.placements.map((p: DbPlacement) => (
                           <div
                             key={p._id}
                             onClick={() => handleResultClick('Placements')}
@@ -356,7 +362,7 @@ export const Topbar: React.FC = () => {
                         <span className="text-[10px] font-black text-amber-600 uppercase tracking-widest">HR Contacts</span>
                       </div>
                       <div className="grid grid-cols-1 gap-1">
-                        {globalSearchResults.hr_contacts.map((h: any) => (
+                        {globalSearchResults.hr_contacts.map((h: DbHrContact) => (
                           <div
                             key={h._id}
                             onClick={() => handleResultClick('HR Contacts')}
@@ -385,7 +391,7 @@ export const Topbar: React.FC = () => {
                         <span className="text-[10px] font-black text-pink-600 uppercase tracking-widest">Training Records</span>
                       </div>
                       <div className="grid grid-cols-1 gap-1">
-                        {globalSearchResults.training_details.map((t: any) => (
+                        {globalSearchResults.training_details.map((t: DbTrainingDetail) => (
                           <div
                             key={t._id}
                             onClick={() => handleResultClick('Training Records')}

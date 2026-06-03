@@ -16,11 +16,6 @@ const getOverviewAnalytics = async (req, res, next) => {
     const studentFilter = isAll ? {} : { $or: [{ batch_year: Number(rawBatchYear) }, { year: Number(rawBatchYear) }] };
     const placementFilter = isAll ? {} : { $or: [{ batch_year: Number(rawBatchYear) }, { year: Number(rawBatchYear) }] };
 
-    if (isAll) {
-      console.log(`all -> unfiltered aggregate`);
-    } else {
-      console.log(`${Number(rawBatchYear)} -> filtered`);
-    }
 
     const totalStudents = await Student.countDocuments(studentFilter);
     const placedStudents = await Placement.countDocuments({
@@ -65,11 +60,6 @@ const getDepartmentAnalytics = async (req, res, next) => {
     const rawBatchYear = req.query.batch_year ?? req.query.year;
     const isAll = !rawBatchYear || String(rawBatchYear).trim().toLowerCase() === 'all';
 
-    if (isAll) {
-      console.log(`all -> unfiltered aggregate`);
-    } else {
-      console.log(`${Number(rawBatchYear)} -> filtered`);
-    }
 
     const matchStage = isAll
       ? {}
@@ -167,11 +157,6 @@ const getCompanyAnalytics = async (req, res, next) => {
     const rawBatchYear = req.query.batch_year ?? req.query.year;
     const isAll = !rawBatchYear || String(rawBatchYear).trim().toLowerCase() === 'all';
 
-    if (isAll) {
-      console.log(`all -> unfiltered aggregate`);
-    } else {
-      console.log(`${Number(rawBatchYear)} -> filtered`);
-    }
 
     const matchStage = isAll
       ? {}
