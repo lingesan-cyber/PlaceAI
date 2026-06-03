@@ -1,4 +1,3 @@
-const { DEPARTMENTS } = require('../constants/departments');
 
 /**
  * Validates a single placement record.

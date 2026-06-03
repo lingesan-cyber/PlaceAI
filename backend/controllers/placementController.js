@@ -1,8 +1,6 @@
 const Placement = require('../models/Placement');
 const { validatePlacementRecord } = require('../utils/validator');
 
-const getEffectiveBatchYear = (record) => Number(record?.batch_year ?? record?.year);
-
 /**
  * @desc    Get all placements (with pagination and optional filters)
  * @route   GET /api/placements

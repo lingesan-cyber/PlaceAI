@@ -184,7 +184,8 @@ const updateSettings = async (req, res, next) => {
     const currentSettings = await getStoredSettings();
     const normalized = normalizeSettingsPayload(req.body);
     const merged = mergeSettings(currentSettings, normalized);
-    const { key, ...settingsToSave } = merged;
+    const settingsToSave = { ...merged };
+    delete settingsToSave.key;
 
     const settings = await Settings.findOneAndUpdate(
       { key: SETTINGS_KEY },

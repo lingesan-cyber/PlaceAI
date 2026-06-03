@@ -2,15 +2,6 @@ const Placement = require('../models/Placement');
 const Company = require('../models/Company');
 const Student = require('../models/Student');
 
-const buildBatchMatch = (year) => {
-  if (!year || String(year).trim().toLowerCase() === 'all') {
-    console.log(`all -> unfiltered aggregate`);
-    return {};
-  }
-  const numericYear = Number(year);
-  console.log(`${numericYear} -> filtered`);
-  return { $or: [{ batch_year: numericYear }, { year: numericYear }] };
-};
 
 /**
  * @desc    Get placement overview metrics
