@@ -7,7 +7,7 @@ import { OverallDashboard } from '../pages/dashboard/OverallDashboard';
 import { DirectorDashboard } from '../pages/dashboard/DirectorDashboard';
 import { PlacementOfficerDashboard } from '../pages/dashboard/PlacementOfficerDashboard';
 import { TrainingStaffDashboard } from '../pages/dashboard/TrainingStaffDashboard';
-import { BatchSettings } from '../pages/admin/BatchSettings';
+import { SettingsPage } from '../pages/settings/SettingsPage';
 
 export const AppRoutes: React.FC = () => {
   return (
@@ -27,13 +27,7 @@ export const AppRoutes: React.FC = () => {
         <Route path="training" element={
           <ProtectedRoute allowedRoles={['training']}><TrainingStaffDashboard /></ProtectedRoute>
         } />
-
-        {/* Admin Settings — accessible by overall and director roles */}
-        <Route path="settings" element={
-          <ProtectedRoute allowedRoles={['overall', 'director']}>
-            <BatchSettings />
-          </ProtectedRoute>
-        } />
+        <Route path="settings" element={<SettingsPage />} />
 
         <Route index element={<Navigate to="overall" replace />} />
       </Route>

@@ -6,6 +6,7 @@ import { useAuthStore } from '../../store/useAuthStore';
 import { useQueryClient } from '@tanstack/react-query';
 import { apiClient } from '../../lib/apiClient';
 import { StudentManagementPanel } from '../../components/StudentManagementPanel';
+import { FormatGuideModal } from '../../components/FormatGuideModal';
 import { 
   Search, 
   Plus, 
@@ -174,7 +175,7 @@ export const PlacementOfficerDashboard: React.FC = () => {
     getPaginationRowModel: getPaginationRowModel(),
     initialState: {
       pagination: {
-        pageSize: 4
+        pageSize: 14
       }
     }
   });
@@ -396,6 +397,7 @@ export const PlacementOfficerDashboard: React.FC = () => {
   const [activeFile, setActiveFile] = useState<File | null>(null);
   const [duplicatePolicy, setDuplicatePolicy] = useState<'skip' | 'overwrite'>('skip');
   const [previewTab, setPreviewTab] = useState<'all' | 'new' | 'duplicates' | 'errors'>('all');
+  const [showFormatGuide, setShowFormatGuide] = useState(false);
 
   interface ImportHistoryEntry {
     filename: string;
@@ -796,10 +798,10 @@ export const PlacementOfficerDashboard: React.FC = () => {
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           
           {/* Left Column: Table & Form */}
-          <div className="lg:col-span-2 space-y-6">
+          <div className="lg:col-span-2 flex flex-col gap-6 h-full">
             
             {/* A) Company Management Table */}
-            <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+            <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden flex flex-col flex-1">
               <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between">
                 <div>
                   <h3 className="text-sm font-extrabold text-slate-800">Recruiter List</h3>
@@ -815,7 +817,7 @@ export const PlacementOfficerDashboard: React.FC = () => {
               </div>
 
               {/* TanStack Table rendering */}
-              <div className="overflow-x-auto">
+              <div className="overflow-x-auto overflow-y-auto flex-1">
                 <table className="w-full text-left border-collapse text-xs">
                   <thead>
                     {table.getHeaderGroups().map(hg => (
@@ -1529,8 +1531,15 @@ export const PlacementOfficerDashboard: React.FC = () => {
               >
                 Browse Files
               </button>
-              
-                  <p className="text-[10px] text-slate-400">Use a real spreadsheet export to preview imported records.</p>
+              <button
+                type="button"
+                onClick={(e) => { e.stopPropagation(); setShowFormatGuide(true); }}
+                className="flex items-center gap-1.5 border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 text-xs font-bold px-4 py-2 rounded-lg transition-all cursor-pointer"
+              >
+                <span>📘</span>
+                <span>Format Guide</span>
+              </button>
+              <p className="text-[10px] text-slate-400 ml-1">Use a real spreadsheet export to preview imported records.</p>
             </div>
           </div>
 
@@ -1885,6 +1894,9 @@ export const PlacementOfficerDashboard: React.FC = () => {
           </div>
         </div>
       )}
+
+      {/* Format Guide Modal */}
+      {showFormatGuide && <FormatGuideModal onClose={() => setShowFormatGuide(false)} />}
     </div>
   );
 };

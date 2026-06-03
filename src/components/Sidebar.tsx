@@ -47,14 +47,11 @@ export const Sidebar: React.FC = () => {
       icon: BookOpen,
       roles: ['training'],
     },
-  ];
-
-  const adminNavItems = [
     {
-      name: 'Batch Year Settings',
+      name: 'Settings',
       path: '/dashboard/settings',
       icon: Settings2,
-      roles: ['overall', 'director'],
+      roles: ['overall', 'director', 'officer', 'training'],
     },
   ];
 
@@ -62,11 +59,6 @@ export const Sidebar: React.FC = () => {
   const filteredNavItems = navItems.filter(item => {
     if (!user) return false;
     if (user.role === 'overall') return true;
-    return item.roles.includes(user.role);
-  });
-
-  const filteredAdminItems = adminNavItems.filter(item => {
-    if (!user) return false;
     return item.roles.includes(user.role);
   });
 
@@ -135,44 +127,6 @@ export const Sidebar: React.FC = () => {
           );
         })}
       </nav>
-
-      {/* Admin Section */}
-      {filteredAdminItems.length > 0 && (
-        <div className="px-4 pb-4">
-          <div className="border-t border-slate-800 pt-4">
-            <p className="px-3 text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-3">
-              Admin
-            </p>
-            {filteredAdminItems.map((item) => {
-              const Icon = item.icon;
-              return (
-                <NavLink
-                  key={item.path}
-                  to={item.path}
-                  className={({ isActive }) =>
-                    cn(
-                      "flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-medium transition-all duration-200 group",
-                      isActive
-                        ? "bg-gradient-to-r from-violet-700 to-purple-700 text-white shadow-md"
-                        : "text-slate-400 hover:bg-slate-800/60 hover:text-slate-100"
-                    )
-                  }
-                >
-                  {({ isActive }) => (
-                    <>
-                      <Icon className={cn(
-                        "h-5 w-5 transition-transform duration-200 group-hover:scale-110",
-                        isActive ? "text-white" : "text-slate-400 group-hover:text-slate-200"
-                      )} />
-                      <span>{item.name}</span>
-                    </>
-                  )}
-                </NavLink>
-              );
-            })}
-          </div>
-        </div>
-      )}
 
       {/* Sign Out */}
       <div className="p-4 border-t border-slate-800 bg-slate-950/30">

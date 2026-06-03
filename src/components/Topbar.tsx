@@ -1,12 +1,13 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useAuthStore } from '../store/useAuthStore';
-import { Search, Bell, ChevronDown, GitCompare, X, Check } from 'lucide-react';
+import { Search, Bell, ChevronDown, GitCompare, X, Check, Settings2, LogOut } from 'lucide-react';
 import type { UserRole } from '../types';
 import { useYearsStore } from '../store/useYearsStore';
 import { useYearsQuery } from '../hooks/useMetadata';
 import { useQuery } from '@tanstack/react-query';
 import { apiClient } from '../lib/apiClient';
 import { useNavigate } from 'react-router-dom';
+import { BatchManageModal } from './BatchManageModal';
 
 const dashboardNames: Record<UserRole, string> = {
   overall: 'Overall Analytics',
@@ -25,6 +26,7 @@ export const Topbar: React.FC = () => {
     setCompareYears,
     isCompareMode,
     toggleCompareMode,
+    logout,
   } = useAuthStore();
 
   const navigate = useNavigate();
@@ -38,8 +40,10 @@ export const Topbar: React.FC = () => {
   const [showRoleSwitcher, setShowRoleSwitcher] = useState(false);
   const [showNotifications, setShowNotifications] = useState(false);
   const [showComparePanel, setShowComparePanel] = useState(false);
+  const [showBatchManage, setShowBatchManage] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const comparePanelRef = useRef<HTMLDivElement>(null);
+  const profileDropdownRef = useRef<HTMLDivElement>(null);
   
   // Search Overlay States
   const [isSearchFocused, setIsSearchFocused] = useState(false);
@@ -165,11 +169,18 @@ export const Topbar: React.FC = () => {
     return () => document.removeEventListener('mousedown', handler);
   }, []);
 
-  const handleRoleChange = (role: UserRole) => {
-    setRole(role);
-    setShowRoleSwitcher(false);
-    navigate(`/dashboard/${role}`);
-  };
+  // Close profile dropdown when clicking outside
+  useEffect(() => {
+    const handler = (e: MouseEvent) => {
+      if (profileDropdownRef.current && !profileDropdownRef.current.contains(e.target as Node)) {
+        setShowRoleSwitcher(false);
+      }
+    };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, []);
+
+
 
   // Toggle a year in compareYears selection
   const toggleCompareYear = (year: string) => {
@@ -506,7 +517,7 @@ export const Topbar: React.FC = () => {
             </select>
           )}
 
-          {/* ── Compare Toggle Button ──────────────────────────────────────── */}
+          {/* ── Compare Toggle Button ────────────────────────────────────── */}
           <button
             onClick={handleToggleCompareMode}
             title={isCompareMode ? 'Exit compare mode' : 'Compare years'}
@@ -528,6 +539,18 @@ export const Topbar: React.FC = () => {
               </>
             )}
           </button>
+
+          {/* ── Manage Batches Button (roles: overall, director) ─────────── */}
+          {user && (user.role === 'overall' || user.role === 'director') && (
+            <button
+              onClick={() => setShowBatchManage(true)}
+              title="Manage batch years"
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-xs font-semibold bg-white text-slate-600 border-slate-200 hover:bg-slate-50 hover:text-slate-800 transition-all"
+            >
+              <Settings2 className="h-3.5 w-3.5" />
+              <span className="hidden sm:inline">Manage</span>
+            </button>
+          )}
         </div>
 
         {/* Notifications */}
@@ -559,7 +582,7 @@ export const Topbar: React.FC = () => {
 
         {/* User Card & Workspace Switcher */}
         {user && (
-          <div className="relative">
+          <div ref={profileDropdownRef} className="relative">
             <button
               onClick={() => setShowRoleSwitcher(!showRoleSwitcher)}
               className="flex items-center gap-2 p-1 pr-3 hover:bg-slate-100 rounded-lg transition-all border border-transparent hover:border-slate-200"
@@ -574,26 +597,30 @@ export const Topbar: React.FC = () => {
             {showRoleSwitcher && (
               <div className="absolute right-0 mt-2 w-56 bg-white border border-slate-200 rounded-xl shadow-xl z-20 py-2 divide-y divide-slate-100">
                 <div className="px-4 py-2">
-                  <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Active User</p>
-                  <p className="text-xs font-semibold text-slate-800 truncate mt-0.5">{user.name}</p>
-                  <p className="text-[10px] text-slate-400 truncate">{user.email}</p>
+                  <p className="text-xs font-bold text-slate-800 truncate">{user.name}</p>
+                  <p className="text-[10px] text-slate-400 truncate mt-0.5">{user.email}</p>
                 </div>
                 <div className="py-1">
-                  <p className="px-4 py-1.5 text-[10px] font-bold text-slate-400 uppercase tracking-widest">DASHBOARD NAVIGATION</p>
-                  {(['overall', 'director', 'officer', 'training'] as UserRole[]).map((role) => (
-                    <button
-                      key={role}
-                      onClick={() => handleRoleChange(role)}
-                      className={`w-full text-left px-4 py-2 text-xs flex items-center justify-between transition-colors ${
-                        user.role === role
-                          ? 'bg-blue-50 text-blue-700 font-semibold'
-                          : 'text-slate-600 hover:bg-slate-50'
-                      }`}
-                    >
-                      <span>{dashboardNames[role]}</span>
-                      {user.role === role && <span className="h-1.5 w-1.5 rounded-full bg-blue-600" />}
-                    </button>
-                  ))}
+                  <button
+                    onClick={() => {
+                      setShowRoleSwitcher(false);
+                      navigate('/dashboard/settings');
+                    }}
+                    className="w-full text-left px-4 py-2 text-xs flex items-center gap-2 hover:bg-slate-50 text-slate-600 transition-colors cursor-pointer"
+                  >
+                    <Settings2 className="h-4 w-4 text-slate-400" />
+                    <span>Settings</span>
+                  </button>
+                  <button
+                    onClick={() => {
+                      setShowRoleSwitcher(false);
+                      logout();
+                    }}
+                    className="w-full text-left px-4 py-2 text-xs flex items-center gap-2 hover:bg-rose-50 text-rose-600 transition-colors cursor-pointer"
+                  >
+                    <LogOut className="h-4 w-4 text-rose-450" />
+                    <span>Sign Out</span>
+                  </button>
                 </div>
               </div>
             )}
@@ -824,6 +851,9 @@ export const Topbar: React.FC = () => {
           </div>
         </div>
       )}
+
+      {/* Batch Manage Modal */}
+      {showBatchManage && <BatchManageModal onClose={() => setShowBatchManage(false)} />}
     </header>
   );
 };

@@ -45,6 +45,7 @@ import {
   ResponsiveContainer 
 } from 'recharts';
 import * as XLSX from 'xlsx';
+import { TrainingFormatGuideModal } from '../../components/TrainingFormatGuideModal';
 
 interface Student {
   id: string;
@@ -365,6 +366,7 @@ export const TrainingStaffDashboard: React.FC = () => {
   const [importSummary, setImportSummary] = useState<any | null>(null);
   const [isDragging, setIsDragging] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const [showTrainingFormatGuide, setShowTrainingFormatGuide] = useState(false);
 
   const handleDragOver = (e: React.DragEvent) => {
     e.preventDefault();
@@ -1362,12 +1364,22 @@ export const TrainingStaffDashboard: React.FC = () => {
               <h4 className="text-sm font-extrabold text-slate-800">Drag and Drop Spreadsheet Here</h4>
               <p className="text-xs text-slate-400 mt-1 mb-4 font-semibold">Supports JSON, CSV, or Microsoft Excel (.xlsx)</p>
               
-              <button 
-                onClick={handleBrowseClick}
-                className="px-4 py-2 bg-white border border-slate-200 hover:border-slate-300 rounded-xl text-xs font-bold text-slate-700 shadow-sm cursor-pointer"
-              >
-                Browse Local Files
-              </button>
+              <div className="flex items-center gap-2 flex-wrap justify-center">
+                <button 
+                  onClick={handleBrowseClick}
+                  className="px-4 py-2 bg-white border border-slate-200 hover:border-slate-300 rounded-xl text-xs font-bold text-slate-700 shadow-sm cursor-pointer"
+                >
+                  Browse Local Files
+                </button>
+                <button
+                  type="button"
+                  onClick={(e) => { e.stopPropagation(); setShowTrainingFormatGuide(true); }}
+                  className="flex items-center gap-1.5 border border-indigo-200 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 text-xs font-bold px-4 py-2 rounded-xl transition-all cursor-pointer"
+                >
+                  <span>📘</span>
+                  <span>Training Format Guide</span>
+                </button>
+              </div>
 
               <input 
                 type="file"
@@ -1677,6 +1689,9 @@ export const TrainingStaffDashboard: React.FC = () => {
           </div>
         </div>
       )}
+
+      {/* Training Format Guide Modal */}
+      {showTrainingFormatGuide && <TrainingFormatGuideModal onClose={() => setShowTrainingFormatGuide(false)} />}
 
     </div>
   );
