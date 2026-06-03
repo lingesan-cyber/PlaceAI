@@ -546,8 +546,8 @@ export const Topbar: React.FC = () => {
             )}
           </button>
 
-          {/* ── Manage Batches Button (roles: overall, director) ─────────── */}
-          {user && (user.role === 'overall' || user.role === 'director') && (
+          {/* ── Manage Batches Button ────────────────────────────────────── */}
+          {user && (
             <button
               onClick={() => setShowBatchManage(true)}
               title="Manage batch years"

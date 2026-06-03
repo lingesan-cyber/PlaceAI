@@ -1,12 +1,6 @@
 const User = require('../models/User');
 const generateToken = require('../utils/generateToken');
 
-const roleAvatars = {
-  overall: 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=150&h=150&fit=crop&crop=face',
-  director: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=150&h=150&fit=crop&crop=face',
-  officer: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150&h=150&fit=crop&crop=face',
-  training: 'https://images.unsplash.com/photo-1519345182560-3f2917c472ef?w=150&h=150&fit=crop&crop=face',
-};
 
 /**
  * @desc    Register a new user
@@ -30,15 +24,14 @@ const registerUser = async (req, res, next) => {
     }
 
     const assignedRole = role || 'overall';
-    const avatar = roleAvatars[assignedRole] || roleAvatars.overall;
 
-    // Create user
+    // Create user — no default avatar; letter avatar is generated client-side
     const user = await User.create({
       name,
       email: email.toLowerCase(),
       password,
       role: assignedRole,
-      avatar
+      avatar: ''
     });
 
     if (user) {
@@ -81,6 +74,12 @@ const loginUser = async (req, res, next) => {
     const user = await User.findOne({ email: email.toLowerCase() });
 
     if (user && (await user.matchPassword(password))) {
+      if (user.isActive === false) {
+        return res.status(403).json({
+          message: 'Account has been deactivated'
+        });
+      }
+
       res.status(200).json({
         success: true,
         message: 'Login successful',
@@ -165,8 +164,14 @@ const updateUserProfile = async (req, res, next) => {
 
     const { name, email, avatar } = req.body;
 
-    if (name) user.name = name;
-    if (avatar !== undefined) user.avatar = avatar;
+    // Always update name when provided (even if same)
+    if (name !== undefined && name !== null) user.name = name;
+
+    // Always update avatar when the key is present in the request body.
+    // This allows intentional removal by sending avatar: '' or avatar: null.
+    if (Object.prototype.hasOwnProperty.call(req.body, 'avatar')) {
+      user.avatar = avatar ?? '';
+    }
 
     if (email && email.toLowerCase() !== user.email) {
       // Validate uniqueness of the new email
@@ -188,7 +193,7 @@ const updateUserProfile = async (req, res, next) => {
         name: updatedUser.name,
         email: updatedUser.email,
         role: updatedUser.role,
-        avatar: updatedUser.avatar
+        avatar: updatedUser.avatar ?? ''
       }
     });
   } catch (error) {

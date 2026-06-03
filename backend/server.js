@@ -18,6 +18,7 @@ const searchRoutes = require('./routes/searchRoutes');
 const departmentRoutes = require('./routes/departmentRoutes');
 const settingsRoutes = require('./routes/settingsRoutes');
 const authRoutes = require('./routes/authRoutes');
+const userRoutes = require('./routes/userRoutes');
 
 // Load environment configurations
 dotenv.config();
@@ -59,6 +60,7 @@ app.use('/api/search', searchRoutes);
 app.use('/api/departments', departmentRoutes);
 app.use('/api/settings', settingsRoutes);
 app.use('/api/auth', authRoutes);
+app.use('/api/users', userRoutes);
 
 // Unmatched Route Catchment
 app.use(notFound);

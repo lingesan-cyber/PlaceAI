@@ -9,7 +9,8 @@ import {
   LogOut, 
   ShieldCheck, 
   GraduationCap,
-  Settings2
+  Settings2,
+  Users2
 } from 'lucide-react';
 import { cn } from '../lib/utils';
 
@@ -51,6 +52,12 @@ export const Sidebar: React.FC = () => {
       name: 'Settings',
       path: '/dashboard/settings',
       icon: Settings2,
+      roles: ['overall', 'director', 'officer', 'training'],
+    },
+    {
+      name: 'Users',
+      path: '/dashboard/users',
+      icon: Users2,
       roles: ['overall', 'director', 'officer', 'training'],
     },
   ];

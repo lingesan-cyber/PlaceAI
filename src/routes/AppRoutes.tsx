@@ -8,6 +8,7 @@ import { DirectorDashboard } from '../pages/dashboard/DirectorDashboard';
 import { PlacementOfficerDashboard } from '../pages/dashboard/PlacementOfficerDashboard';
 import { TrainingStaffDashboard } from '../pages/dashboard/TrainingStaffDashboard';
 import { SettingsPage } from '../pages/settings/SettingsPage';
+import { UsersPage } from '../pages/users/UsersPage';
 
 export const AppRoutes: React.FC = () => {
   return (
@@ -22,6 +23,7 @@ export const AppRoutes: React.FC = () => {
         <Route path="officer" element={<PlacementOfficerDashboard />} />
         <Route path="training" element={<TrainingStaffDashboard />} />
         <Route path="settings" element={<SettingsPage />} />
+        <Route path="users" element={<UsersPage />} />
 
         <Route index element={<Navigate to="overall" replace />} />
       </Route>
