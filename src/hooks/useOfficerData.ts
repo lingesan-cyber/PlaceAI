@@ -1,13 +1,12 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { apiClient } from '../lib/apiClient';
-
-const normalizeBatchYear = (record: any): string => {
-  return String(record?.batch_year ?? '').trim();
-};
-
-const normalizePlacementStatus = (value: any): string => {
-  return String(value ?? '').trim().toLowerCase();
-};
+import type { Company } from '../types';
+import {
+  normalizeBatchYear,
+  normalizePlacementStatus,
+  getFilteredCompaniesForYear,
+  mapStatus
+} from '../lib/utils';
 
 const mapPlacementStage = (status: any): string => {
   const normalized = normalizePlacementStatus(status);
@@ -16,17 +15,6 @@ const mapPlacementStage = (status: any): string => {
   if (normalized === 'interviewed') return 'Interviewed';
   if (normalized === 'rejected') return 'Rejected';
   return 'Applied';
-};
-
-const getBatchCompanyNames = (placements: any[], year: string): Set<string> => {
-  const isAllYears = !year || year.toLowerCase() === 'all';
-  if (isAllYears) return new Set<string>();
-  return new Set(
-    placements
-      .filter((placement: any) => normalizeBatchYear(placement) === year)
-      .map((placement: any) => String(placement.company ?? '').trim())
-      .filter(Boolean)
-  );
 };
 
 export const usePlacementsQuery = (year: string) => {
@@ -65,7 +53,7 @@ export const usePlacementsQuery = (year: string) => {
 
 /** Companies registered for drives in the given year. */
 export const useCompaniesQuery = (year: string) => {
-  return useQuery({
+  return useQuery<Company[]>({
     queryKey: ['officer', 'companies', year],
     queryFn: async () => {
       const [companiesRes, placementsRes] = await Promise.all([
@@ -76,23 +64,18 @@ export const useCompaniesQuery = (year: string) => {
       const companies = companiesRes.data?.data || [];
       const placementsPayload = placementsRes.data?.data;
       const placements = Array.isArray(placementsPayload) ? placementsPayload : (placementsPayload?.placements || []);
-      const allowedCompanyNames = getBatchCompanyNames(placements, year);
-
-      const isAllYears = !year || year.toLowerCase() === 'all';
-      const filteredCompanies = isAllYears
-        ? companies
-        : companies.filter((company: any) => allowedCompanyNames.has(String(company.company_name ?? '').trim()));
+      const filteredCompanies = getFilteredCompaniesForYear(companies, placements, year);
 
       // temporary debug logs removed; use React Query DevTools if needed
 
       return filteredCompanies.map((c: any) => ({
-        id: c._id,
-        name: c.company_name,
+        id: c._id || '',
+        name: c.company_name || '',
         role: c.role || 'Campus Drive',
         package: `${c.package || 0} LPA`,
         packageOffer: `${c.package || 0} LPA`,
         driveDate: c.drive_date ? new Date(c.drive_date).toISOString().split('T')[0] : '',
-        status: c.status || 'Active'
+        status: mapStatus(c.status)
       }));
     },
     staleTime: 5 * 60 * 1000,
@@ -190,11 +173,7 @@ export const useDrivesQuery = (year: string) => {
       const companies = companiesRes.data?.data || [];
       const placementsPayload = placementsRes.data?.data;
       const placements = Array.isArray(placementsPayload) ? placementsPayload : (placementsPayload?.placements || []);
-      const allowedCompanyNames = getBatchCompanyNames(placements, year);
-      const isAllYears = !year || year.toLowerCase() === 'all';
-      const filteredCompanies = isAllYears
-        ? companies
-        : companies.filter((company: any) => allowedCompanyNames.has(String(company.company_name ?? '').trim()));
+      const filteredCompanies = getFilteredCompaniesForYear(companies, placements, year);
 
       // temporary debug logs removed; use React Query DevTools if needed
 

@@ -1,5 +1,11 @@
 import { useQuery } from '@tanstack/react-query';
 import { apiClient } from '../lib/apiClient';
+import {
+  normalizeBatchYear,
+  normalizePlacementStatus,
+  normalizeDepartment,
+  parsePackageValue
+} from '../lib/utils';
 
 export interface DirectorStats {
   packages: {
@@ -25,22 +31,6 @@ export interface DirectorStats {
   }[];
 }
 
-const normalizeBatchYear = (record: any): string => {
-  return String(record?.batch_year ?? record?.batchYear ?? record?.year ?? '').trim();
-};
-
-const normalizePlacementStatus = (value: any): string => {
-  return String(value ?? '').trim().toLowerCase();
-};
-
-const parsePackageValue = (value: any): number => {
-  if (typeof value === 'number' && Number.isFinite(value)) return value;
-  const parsed = Number(String(value ?? '').replace(/[^0-9.]/g, ''));
-  return Number.isFinite(parsed) ? parsed : 0;
-};
-
-
-
 const buildTopHiring = (placements: any[]): { name: string; selections: number }[] => {
   const counts = new Map<string, number>();
   placements.forEach((placement: any) => {
@@ -59,14 +49,14 @@ const buildTopHiring = (placements: any[]): { name: string; selections: number }
 const buildDepartmentStats = (students: any[], placements: any[]) => {
   const departments = Array.from(
     new Set([
-      ...students.map((student: any) => String(student.department ?? '').trim().toUpperCase()),
-      ...placements.map((placement: any) => String(placement.department ?? '').trim().toUpperCase())
+      ...students.map((student: any) => normalizeDepartment(student)),
+      ...placements.map((placement: any) => normalizeDepartment(placement))
     ].filter(Boolean))
   ).sort();
 
   const deptPerformance = departments.map((department) => {
-    const deptStudents = students.filter((student: any) => String(student.department ?? '').trim().toUpperCase() === department);
-    const deptPlacements = placements.filter((placement: any) => String(placement.department ?? '').trim().toUpperCase() === department && normalizePlacementStatus(placement.placement_status) === 'placed');
+    const deptStudents = students.filter((student: any) => normalizeDepartment(student) === department);
+    const deptPlacements = placements.filter((placement: any) => normalizeDepartment(placement) === department && normalizePlacementStatus(placement.placement_status) === 'placed');
     const total = deptStudents.length;
     const placed = deptPlacements.length;
     const percentage = total > 0 ? parseFloat(((placed / total) * 100).toFixed(1)) : 0;
@@ -96,7 +86,7 @@ const buildDepartmentStats = (students: any[], placements: any[]) => {
   });
 
   const deptPackages = departments.map((department) => {
-    const deptPlacements = placements.filter((placement: any) => String(placement.department ?? '').trim().toUpperCase() === department && normalizePlacementStatus(placement.placement_status) === 'placed');
+    const deptPlacements = placements.filter((placement: any) => normalizeDepartment(placement) === department && normalizePlacementStatus(placement.placement_status) === 'placed');
     const avgPkg = deptPlacements.length > 0
       ? deptPlacements.reduce((sum: number, placement: any) => sum + parsePackageValue(placement.package), 0) / deptPlacements.length
       : 0;
@@ -109,8 +99,6 @@ const buildDepartmentStats = (students: any[], placements: any[]) => {
 
   return { deptPerformance, deptPackages };
 };
-
-
 
 /**
  * Fetches strategic director stats directly from student, placement, and company records.
@@ -137,8 +125,6 @@ export const useDirectorData = (year: string) => {
       const selectedPlacements = isAllYears
         ? rawPlacements
         : rawPlacements.filter((placement: any) => normalizeBatchYear(placement) === String(year));
-
-      // temporary debug logs removed; use React Query DevTools if needed
 
       const packages = selectedPlacements
         .filter((placement: any) => normalizePlacementStatus(placement.placement_status) === 'placed')
@@ -193,18 +179,16 @@ export const useDirectorYearlyAnalysis = (year: string) => {
         new Set<string>(filteredPlacements.map((placement: any) => normalizeBatchYear(placement)).filter(Boolean) as string[])
       ).sort((a, b) => a.localeCompare(b));
       const departments: string[] = Array.from(
-        new Set<string>(filteredPlacements.map((placement: any) => String(placement.department ?? '').trim().toUpperCase()).filter(Boolean) as string[])
+        new Set<string>(filteredPlacements.map((placement: any) => normalizeDepartment(placement)).filter(Boolean) as string[])
       ).sort();
 
       const rows = batchYears.map((batchYear) => {
         const row: Record<string, any> = { year: batchYear };
         departments.forEach((department) => {
-          row[department] = filteredPlacements.filter((placement: any) => normalizeBatchYear(placement) === batchYear && String(placement.department ?? '').trim().toUpperCase() === department && normalizePlacementStatus(placement.placement_status) === 'placed').length;
+          row[department] = filteredPlacements.filter((placement: any) => normalizeBatchYear(placement) === batchYear && normalizeDepartment(placement) === department && normalizePlacementStatus(placement.placement_status) === 'placed').length;
         });
         return row;
       });
-
-      // temporary debug logs removed; use React Query DevTools if needed
 
       return rows;
     },

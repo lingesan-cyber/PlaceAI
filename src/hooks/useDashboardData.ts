@@ -1,6 +1,13 @@
 import { useQuery } from '@tanstack/react-query';
 import { apiClient } from '../lib/apiClient';
 import type { Company } from '../types';
+import {
+  normalizeBatchYear,
+  normalizePlacementStatus,
+  normalizeDepartment,
+  parsePackageValue,
+  mapStatus
+} from '../lib/utils';
 
 export interface DashboardStats {
   totalStudents: number;
@@ -20,31 +27,6 @@ export interface DashboardData {
   funnel: { name: string; value: number; percentage: number }[];
   companies: Company[];
 }
-
-const mapStatus = (status: string): 'Visiting' | 'Ongoing' | 'Completed' => {
-  const normalized = String(status).trim().toLowerCase();
-  if (normalized === 'completed') return 'Completed';
-  if (normalized === 'active' || normalized === 'ongoing') return 'Ongoing';
-  return 'Visiting'; // default fallback matching Company.status options
-};
-
-const normalizeBatchYear = (record: any): string => {
-  return String(record?.batch_year ?? record?.batchYear ?? record?.year ?? '').trim();
-};
-
-const normalizePlacementStatus = (record: any): string => {
-  return String(record?.placement_status ?? record?.placementStatus ?? '').trim().toLowerCase();
-};
-
-const normalizeDepartment = (record: any): string => {
-  return String(record?.department ?? record?.dept ?? '').trim().toUpperCase();
-};
-
-const parsePackageValue = (value: any): number => {
-  if (typeof value === 'number' && Number.isFinite(value)) return value;
-  const parsed = Number(String(value ?? '').replace(/[^0-9.]/g, ''));
-  return Number.isFinite(parsed) ? parsed : 0;
-};
 
 /**
  * Hook to retrieve unified dashboard stats, aggregates, and recruiting company lists

@@ -3,6 +3,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { apiClient } from '../lib/apiClient';
 import { z } from 'zod';
 import { Search, Plus, Edit2, Trash2, Eye, X } from 'lucide-react';
+import { normalizeBatchYear } from '../lib/utils';
 
 type StudentRecord = {
   _id?: string;
@@ -54,10 +55,6 @@ const emptyForm = {
 
 type StudentManagementPanelProps = {
   selectedYear: string;
-};
-
-const normalizeBatchYear = (student: StudentRecord): string => {
-  return String(student.batch_year ?? '').trim();
 };
 
 export const StudentManagementPanel: React.FC<StudentManagementPanelProps> = ({ selectedYear }) => {
