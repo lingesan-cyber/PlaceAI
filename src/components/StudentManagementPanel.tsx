@@ -50,7 +50,7 @@ const emptyForm = {
   cgpa: '0',
   arrears: '0',
   skills: '',
-  placementStatus: 'Applied'
+  placementStatus: 'Not Placed'
 };
 
 type StudentManagementPanelProps = {
@@ -230,7 +230,7 @@ export const StudentManagementPanel: React.FC<StudentManagementPanelProps> = ({ 
             onChange={(e) => setStatusFilter(e.target.value)}
             className="w-full border border-slate-200 rounded-lg p-2 text-xs bg-white focus:outline-none focus:ring-1 focus:ring-blue-500"
           >
-            {['All', 'Applied', 'Pending', 'Rejected', 'Placed'].map((status) => (
+            {['All', 'Applied', 'Pending', 'Rejected', 'Placed', 'Not Placed'].map((status) => (
               <option key={status} value={status}>{status === 'All' ? 'All Statuses' : status}</option>
             ))}
           </select>
@@ -277,7 +277,7 @@ export const StudentManagementPanel: React.FC<StudentManagementPanelProps> = ({ 
               <div>
                 <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1">Placement Status</label>
                 <select value={studentForm.placementStatus} onChange={(e) => setStudentForm({ ...studentForm, placementStatus: e.target.value })} className="w-full border border-slate-200 rounded-lg p-2 text-xs bg-white">
-                  {['Applied', 'Pending', 'Rejected', 'Placed'].map((status) => <option key={status} value={status}>{status}</option>)}
+                  {['Applied', 'Pending', 'Rejected', 'Placed', 'Not Placed'].map((status) => <option key={status} value={status}>{status}</option>)}
                 </select>
                 {formErrors.placementStatus && <p className="text-[9px] text-rose-500 mt-1 font-semibold">{formErrors.placementStatus}</p>}
               </div>
@@ -299,8 +299,8 @@ export const StudentManagementPanel: React.FC<StudentManagementPanelProps> = ({ 
           </form>
         )}
 
-        <div className="overflow-x-auto rounded-2xl border border-slate-200">
-          <table className="w-full text-left border-collapse text-xs bg-white">
+        <div className="overflow-x-auto rounded-2xl border border-slate-200 animate-table-fade">
+          <table className="w-full text-left border-collapse text-xs bg-white table-row-hover">
             <thead>
               <tr className="bg-slate-50 text-slate-500 border-b border-slate-200 uppercase tracking-wider">
                 <th className="px-5 py-3 font-bold">Student</th>
@@ -314,7 +314,17 @@ export const StudentManagementPanel: React.FC<StudentManagementPanelProps> = ({ 
             </thead>
             <tbody className="divide-y divide-slate-100 text-slate-700">
               {isLoading ? (
-                <tr><td className="px-5 py-8 text-slate-400" colSpan={7}>Loading students...</td></tr>
+                Array.from({ length: 5 }).map((_, idx) => (
+                  <tr key={idx} className="animate-pulse border-b border-slate-100">
+                    <td className="px-5 py-4"><div className="h-4 bg-slate-200 rounded w-24 mb-1"></div><div className="h-3 bg-slate-100 rounded w-16"></div></td>
+                    <td className="px-5 py-4"><div className="h-4 bg-slate-200 rounded w-12"></div></td>
+                    <td className="px-5 py-4"><div className="h-4 bg-slate-200 rounded w-8"></div></td>
+                    <td className="px-5 py-4"><div className="h-4 bg-slate-200 rounded w-8"></div></td>
+                    <td className="px-5 py-4"><div className="h-4 bg-slate-200 rounded w-32"></div></td>
+                    <td className="px-5 py-4"><div className="h-5 bg-slate-200 rounded-full w-16"></div></td>
+                    <td className="px-5 py-4"><div className="h-6 bg-slate-200 rounded w-16"></div></td>
+                  </tr>
+                ))
               ) : filteredStudents.length > 0 ? filteredStudents.map((student) => (
                 <tr key={student._id || student.id} className="hover:bg-slate-50/50 transition-colors">
                   <td className="px-5 py-4">
@@ -349,8 +359,8 @@ export const StudentManagementPanel: React.FC<StudentManagementPanelProps> = ({ 
       </div>
 
       {viewStudent && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/50 px-4">
-          <div className="w-full max-w-2xl rounded-2xl bg-white p-6 shadow-2xl border border-slate-200 max-h-[90vh] overflow-y-auto">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/50 px-4 animate-overlay-fade">
+          <div className="w-full max-w-2xl rounded-2xl bg-white p-6 shadow-2xl border border-slate-200 max-h-[90vh] overflow-y-auto animate-modal-scale">
             <div className="flex items-start justify-between border-b border-slate-100 pb-3">
               <div>
                 <h3 className="text-sm font-extrabold text-slate-800">Student Profile</h3>
@@ -381,8 +391,8 @@ export const StudentManagementPanel: React.FC<StudentManagementPanelProps> = ({ 
       )}
 
       {deleteTargetStudent && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/50 px-4">
-          <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-2xl border border-slate-200">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/50 px-4 animate-overlay-fade">
+          <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-2xl border border-slate-200 animate-modal-scale">
             <h3 className="text-sm font-extrabold text-slate-800">Delete Student</h3>
             <p className="mt-2 text-xs text-slate-500">
               Delete <span className="font-bold text-slate-700">{deleteTargetStudent.name}</span> ({deleteTargetStudent.reg_no})? This cannot be undone.

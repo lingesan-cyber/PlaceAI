@@ -198,10 +198,10 @@ export const FormatGuideModal: React.FC<FormatGuideModalProps> = ({ onClose }) =
 
   return (
     <div
-      className="fixed inset-0 z-[300] flex items-center justify-center bg-slate-950/60 backdrop-blur-sm px-4"
+      className="fixed inset-0 z-[300] flex items-center justify-center bg-slate-950/60 backdrop-blur-sm px-4 animate-overlay-fade"
       onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
     >
-      <div className="w-full max-w-2xl bg-white rounded-2xl shadow-2xl border border-slate-200 flex flex-col max-h-[90vh] overflow-hidden">
+      <div className="w-full max-w-2xl bg-white rounded-2xl shadow-2xl border border-slate-200 flex flex-col max-h-[90vh] overflow-hidden animate-modal-scale">
 
         {/* ── Header ── */}
         <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between flex-shrink-0">

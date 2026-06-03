@@ -20,7 +20,7 @@ const buildStudentPayload = (body) => {
   const arrears = Number(body.arrears);
   const placement_status = typeof body.placement_status === 'string' && body.placement_status.trim()
     ? body.placement_status.trim()
-    : 'Applied';
+    : 'Not Placed';
 
   const section = typeof body.section === 'string' ? body.section.trim().toUpperCase() : '';
 

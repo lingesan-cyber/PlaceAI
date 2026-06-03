@@ -60,8 +60,8 @@ export const EditUserModal: React.FC<Props> = ({ user, onClose }) => {
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/40 backdrop-blur-sm">
-      <div className="w-full max-w-md bg-white border border-slate-200 rounded-3xl shadow-xl overflow-hidden">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/40 backdrop-blur-sm animate-overlay-fade">
+      <div className="w-full max-w-md bg-white border border-slate-200 rounded-3xl shadow-xl overflow-hidden animate-modal-scale">
         {/* Header */}
         <div className="flex items-center justify-between px-6 py-5 border-b border-slate-200 bg-slate-50">
           <div className="flex items-center gap-3">

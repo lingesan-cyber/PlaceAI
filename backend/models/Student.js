@@ -48,10 +48,10 @@ const studentSchema = new mongoose.Schema(
     },
     placement_status: {
       type: String,
-      default: 'Applied',
+      default: 'Not Placed',
       enum: {
-        values: ['Applied', 'Pending', 'Rejected', 'Placed'],
-        message: 'Placement status must be Applied, Pending, Rejected, or Placed'
+        values: ['Applied', 'Pending', 'Rejected', 'Placed', 'Not Placed'],
+        message: 'Placement status must be Applied, Pending, Rejected, Placed, or Not Placed'
       },
       trim: true
     },

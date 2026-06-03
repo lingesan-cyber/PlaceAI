@@ -13,6 +13,12 @@ interface RawYear {
   visible?: boolean;
 }
 
+interface RawDepartment {
+  department_code: string;
+  department_name?: string;
+}
+
+
 /**
  * Hook to retrieve static/dynamic portal portal metadata, combining database year profiles
  * with verified academic departments constants.
@@ -21,11 +27,17 @@ export const useMetadataQuery = () => {
   return useQuery<PortalMetadata>({
     queryKey: ['metadata'],
     queryFn: async () => {
-      const response = await apiClient.get('/years?all=true');
-      const years = (response.data?.data || []).map((y: RawYear) => String(y.year));
+      const [yearsResponse, deptsResponse] = await Promise.all([
+        apiClient.get('/years?all=true'),
+        apiClient.get('/departments')
+      ]);
+      const years = (yearsResponse.data?.data || []).map((y: RawYear) => String(y.year));
+      const departments = (deptsResponse.data?.data || []).map((d: RawDepartment) =>
+        String(d.department_code || d.department_name).trim().toUpperCase()
+      );
       return {
         years,
-        departments: ['CSE', 'IT', 'ADS', 'ECE', 'EEE', 'MECH', 'MECHATRONICS', 'CIVIL', 'FT']
+        departments
       };
     },
     staleTime: 5 * 60 * 1000,

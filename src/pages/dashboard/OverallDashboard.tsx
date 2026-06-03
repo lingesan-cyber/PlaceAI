@@ -376,7 +376,7 @@ export const OverallDashboard: React.FC = () => {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 animate-fade-in-up">
       {/* Top Banner Control Section */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
@@ -419,7 +419,7 @@ export const OverallDashboard: React.FC = () => {
       {/* A) Top Stats Row — 7 metric cards */}
       <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-4">
         {/* Card 1: Total Students */}
-        <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm flex flex-col justify-between hover:shadow-md transition-shadow">
+        <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm flex flex-col justify-between kpi-card">
           <div className="flex items-center justify-between text-blue-600">
             <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Total Students</span>
             <Users className="h-5 w-5 opacity-80" />
@@ -429,7 +429,7 @@ export const OverallDashboard: React.FC = () => {
         </div>
 
         {/* Card 2: Placed Students */}
-        <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm flex flex-col justify-between hover:shadow-md transition-shadow">
+        <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm flex flex-col justify-between kpi-card">
           <div className="flex items-center justify-between text-indigo-600">
             <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Placed Candidates</span>
             <UserCheck className="h-5 w-5 opacity-80" />
@@ -439,7 +439,7 @@ export const OverallDashboard: React.FC = () => {
         </div>
 
         {/* Card 3: Pending Students */}
-        <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm flex flex-col justify-between hover:shadow-md transition-shadow">
+        <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm flex flex-col justify-between kpi-card">
           <div className="flex items-center justify-between text-rose-600">
             <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Pending Students</span>
             <UserMinus className="h-5 w-5 opacity-80" />
@@ -449,7 +449,7 @@ export const OverallDashboard: React.FC = () => {
         </div>
 
         {/* Card 4: Companies Visited */}
-        <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm flex flex-col justify-between hover:shadow-md transition-shadow">
+        <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm flex flex-col justify-between kpi-card">
           <div className="flex items-center justify-between text-amber-600">
             <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Companies Visited</span>
             <Building className="h-5 w-5 opacity-80" />
@@ -459,7 +459,7 @@ export const OverallDashboard: React.FC = () => {
         </div>
 
         {/* Card 5: Placement Rate */}
-        <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm flex flex-col justify-between hover:shadow-md transition-shadow">
+        <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm flex flex-col justify-between kpi-card">
           <div className="flex items-center justify-between text-violet-600">
             <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Placement Rate</span>
             <Percent className="h-5 w-5 opacity-80" />
@@ -469,7 +469,7 @@ export const OverallDashboard: React.FC = () => {
         </div>
 
         {/* Card 6: Average Package */}
-        <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm flex flex-col justify-between hover:shadow-md transition-shadow">
+        <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm flex flex-col justify-between kpi-card">
           <div className="flex items-center justify-between text-emerald-600">
             <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Average Package</span>
             <TrendingUp className="h-5 w-5 opacity-80" />
@@ -479,7 +479,7 @@ export const OverallDashboard: React.FC = () => {
         </div>
 
         {/* Card 7: Highest Package */}
-        <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm flex flex-col justify-between hover:shadow-md transition-shadow">
+        <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm flex flex-col justify-between kpi-card">
           <div className="flex items-center justify-between text-rose-500">
             <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Highest Package</span>
             <Award className="h-5 w-5 opacity-80" />
@@ -635,8 +635,8 @@ export const OverallDashboard: React.FC = () => {
         </div>
 
         {/* Data table */}
-        <div className="overflow-x-auto">
-          <table className="w-full text-left border-collapse text-xs">
+        <div className="overflow-x-auto animate-table-fade">
+          <table className="w-full text-left border-collapse text-xs table-row-hover">
             <thead>
               {table.getHeaderGroups().map(headerGroup => (
                 <tr key={headerGroup.id} className="bg-slate-50 text-slate-500 border-b border-slate-200 uppercase tracking-wider">
@@ -703,7 +703,7 @@ export const OverallDashboard: React.FC = () => {
 
       {/* Toast Notification */}
       {showToast && (
-        <div className="fixed bottom-5 right-5 bg-slate-900 text-white px-5 py-3.5 rounded-xl shadow-2xl border border-slate-800 flex items-center gap-3 z-[200]">
+        <div className="fixed top-20 right-5 bg-slate-900 text-white px-5 py-3.5 rounded-xl shadow-2xl border border-slate-800 flex items-center gap-3 z-[200] animate-toast-in">
           <div className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse" />
           <p className="text-xs font-semibold">{toastMessage}</p>
           <button 

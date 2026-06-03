@@ -636,8 +636,8 @@ export const Topbar: React.FC = () => {
 
       {/* Student Profile Modal */}
       {showStudentModal && selectedStudentRegNo && (
-        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[200] flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl overflow-hidden border border-slate-150 flex flex-col max-h-[90vh]">
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[200] flex items-center justify-center p-4 animate-overlay-fade">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl overflow-hidden border border-slate-150 flex flex-col max-h-[90vh] animate-modal-scale">
             {/* Header */}
             <div className="p-6 bg-gradient-to-r from-blue-600 via-indigo-600 to-violet-600 text-white flex items-center justify-between">
               <div>

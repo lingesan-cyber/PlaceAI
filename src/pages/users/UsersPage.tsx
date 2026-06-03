@@ -42,7 +42,7 @@ interface StatCardProps {
   iconColor: string;
 }
 const StatCard: React.FC<StatCardProps> = ({ label, value, icon: Icon, iconBg, iconColor }) => (
-  <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm hover:shadow-md transition-shadow flex flex-col justify-between">
+  <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex flex-col justify-between kpi-card">
     <div className="flex items-center justify-between">
       <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">{label}</span>
       <div className={`p-2 rounded-xl ${iconBg}`}>
@@ -140,7 +140,7 @@ export const UsersPage: React.FC = () => {
 
   /* ── render ────────────────────────────────────────────────────────── */
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 animate-fade-in-up">
       {/* Page Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
@@ -210,9 +210,31 @@ export const UsersPage: React.FC = () => {
       {/* Table */}
       <div className="bg-white border border-slate-200 rounded-2xl overflow-hidden shadow-sm">
         {isLoading ? (
-          <div className="flex items-center justify-center py-20 gap-3 text-slate-400">
-            <Loader2 className="h-5 w-5 animate-spin" />
-            <span className="text-sm">Loading users…</span>
+          <div className="overflow-x-auto animate-pulse">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b border-slate-200 bg-slate-50">
+                  <th className="text-left px-5 py-3 text-[10px] font-bold text-slate-400 uppercase tracking-wider">User</th>
+                  <th className="text-left px-4 py-3 text-[10px] font-bold text-slate-400 uppercase tracking-wider hidden md:table-cell">Email</th>
+                  <th className="text-left px-4 py-3 text-[10px] font-bold text-slate-400 uppercase tracking-wider">Role</th>
+                  <th className="text-left px-4 py-3 text-[10px] font-bold text-slate-400 uppercase tracking-wider">Status</th>
+                  <th className="text-left px-4 py-3 text-[10px] font-bold text-slate-400 uppercase tracking-wider hidden lg:table-cell">Created</th>
+                  <th className="text-right px-5 py-3 text-[10px] font-bold text-slate-400 uppercase tracking-wider">Actions</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100">
+                {Array.from({ length: 5 }).map((_, idx) => (
+                  <tr key={idx} className="border-b border-slate-100">
+                    <td className="px-5 py-4"><div className="h-4 bg-slate-200 rounded w-28"></div></td>
+                    <td className="px-4 py-4 hidden md:table-cell"><div className="h-4 bg-slate-200 rounded w-36"></div></td>
+                    <td className="px-4 py-4"><div className="h-5 bg-slate-200 rounded-full w-24"></div></td>
+                    <td className="px-4 py-4"><div className="h-5 bg-slate-200 rounded-full w-16"></div></td>
+                    <td className="px-4 py-4 hidden lg:table-cell"><div className="h-4 bg-slate-200 rounded w-20"></div></td>
+                    <td className="px-5 py-4"><div className="h-6 bg-slate-200 rounded w-12 ml-auto"></div></td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           </div>
         ) : isError ? (
           <div className="flex items-center justify-center py-20 gap-3 text-rose-500">
@@ -220,8 +242,8 @@ export const UsersPage: React.FC = () => {
             <span className="text-sm">{(error as Error)?.message ?? 'Failed to load users'}</span>
           </div>
         ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
+          <div className="overflow-x-auto animate-table-fade">
+            <table className="w-full text-sm table-row-hover">
               <thead>
                 <tr className="border-b border-slate-200 bg-slate-50">
                   <th className="text-left px-5 py-3 text-[10px] font-bold text-slate-400 uppercase tracking-wider">User</th>

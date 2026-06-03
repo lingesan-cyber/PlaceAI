@@ -94,13 +94,13 @@ export const BatchManageModal: React.FC<BatchManageModalProps> = ({ onClose }) =
     <>
       {/* Backdrop */}
       <div
-        className="fixed inset-0 z-[200] bg-slate-950/60 backdrop-blur-sm"
+        className="fixed inset-0 z-[200] bg-slate-950/60 backdrop-blur-sm animate-overlay-fade"
         onClick={onClose}
       />
 
       {/* Modal panel */}
       <div className="fixed inset-0 z-[201] flex items-center justify-center p-4 pointer-events-none">
-        <div className="bg-white rounded-2xl border border-slate-200 shadow-2xl w-full max-w-2xl max-h-[90vh] flex flex-col pointer-events-auto">
+        <div className="bg-white rounded-2xl border border-slate-200 shadow-2xl w-full max-w-2xl max-h-[90vh] flex flex-col pointer-events-auto animate-modal-scale">
 
           {/* ── Header ── */}
           <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between flex-shrink-0">
@@ -326,8 +326,8 @@ export const BatchManageModal: React.FC<BatchManageModalProps> = ({ onClose }) =
 
       {/* ── Archive Confirmation Sub-Modal ── */}
       {archivingYear && (
-        <div className="fixed inset-0 z-[202] flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl border border-slate-200 shadow-2xl p-6 max-w-sm w-full">
+        <div className="fixed inset-0 z-[202] flex items-center justify-center p-4 bg-slate-950/50 animate-overlay-fade">
+          <div className="bg-white rounded-2xl border border-slate-200 shadow-2xl p-6 max-w-sm w-full animate-modal-scale">
             <h3 className="text-sm font-extrabold text-slate-800 flex items-center gap-2 mb-2">
               <ShieldAlert className="h-4 w-4 text-amber-500" />
               Archive {archivingYear} Batch?

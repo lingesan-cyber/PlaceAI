@@ -123,7 +123,7 @@ export const PlacementOfficerDashboard: React.FC = () => {
   const { data: metadata } = useMetadataQuery();
 
   const departments = useMemo(() => {
-    return metadata?.departments || ['CSE', 'IT', 'ECE', 'ME', 'CE'];
+    return metadata?.departments || [];
   }, [metadata]);
 
   // Selected Active Tab
@@ -492,6 +492,8 @@ export const PlacementOfficerDashboard: React.FC = () => {
     errorCount: number;
     duplicateCount: number;
     skippedDetails: { regNo: string; name: string; reason: string }[];
+    departmentsCreated?: number;
+    newDepartments?: string[];
   }
 
   const [importReport, setImportReport] = useState<ImportReport | null>(null);
@@ -588,7 +590,7 @@ export const PlacementOfficerDashboard: React.FC = () => {
 
           const isRegNoInvalid = !regNo;
           const isNameInvalid = !name;
-          const isDeptInvalid = !dept || !departments.includes(dept);
+          const isDeptInvalid = !dept;
           const isBatchYearInvalid = isNaN(batch_year) || batch_year < 2000;
           const isCgpaInvalid = isNaN(cgpa) || cgpa < 0 || cgpa > 10;
           const isArrearsInvalid = isNaN(arrears) || arrears < 0;
@@ -745,7 +747,8 @@ export const PlacementOfficerDashboard: React.FC = () => {
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: ['dashboard'] }),
         queryClient.invalidateQueries({ queryKey: ['officer'] }),
-        queryClient.invalidateQueries({ queryKey: ['search'] })
+        queryClient.invalidateQueries({ queryKey: ['search'] }),
+        queryClient.invalidateQueries({ queryKey: ['metadata'] })
       ]);
 
       const backendSummary = response.data?.data || {};
@@ -804,7 +807,9 @@ export const PlacementOfficerDashboard: React.FC = () => {
         hrUpdated: backendSummary.hrUpdated || 0,
         errorCount: backendSummary.invalidRecords || 0,
         duplicateCount: backendSummary.duplicateRecords || 0,
-        skippedDetails
+        skippedDetails,
+        departmentsCreated: backendSummary.newDepartmentsCreated || 0,
+        newDepartments: backendSummary.newDepartments || []
       };
 
       setImportReport(report);
@@ -833,7 +838,7 @@ export const PlacementOfficerDashboard: React.FC = () => {
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 animate-fade-in-up">
       {/* Title */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
@@ -885,8 +890,8 @@ export const PlacementOfficerDashboard: React.FC = () => {
               </div>
 
               {/* TanStack Table rendering */}
-              <div className="overflow-x-auto overflow-y-auto flex-1">
-                <table className="w-full text-left border-collapse text-xs">
+              <div className="overflow-x-auto overflow-y-auto flex-1 animate-table-fade">
+                <table className="w-full text-left border-collapse text-xs table-row-hover">
                   <thead>
                     {table.getHeaderGroups().map(hg => (
                       <tr key={hg.id} className="bg-slate-50 text-slate-500 border-b border-slate-200 uppercase tracking-wider">
@@ -900,7 +905,7 @@ export const PlacementOfficerDashboard: React.FC = () => {
                   </thead>
                   <tbody className="divide-y divide-slate-100 text-slate-700">
                     {table.getRowModel().rows.map(row => (
-                      <tr key={row.id} className="hover:bg-slate-550/20 transition-colors">
+                      <tr key={row.id} className="hover:bg-slate-50 transition-colors">
                         {row.getVisibleCells().map(cell => (
                           <td key={cell.id} className="px-6 py-3.5">
                             {flexRender(cell.column.columnDef.cell, cell.getContext())}
@@ -1100,8 +1105,8 @@ export const PlacementOfficerDashboard: React.FC = () => {
             )}
 
             {deleteTargetCompany && (
-              <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/50 px-4">
-                <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-2xl border border-slate-200">
+              <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/50 px-4 animate-overlay-fade">
+                <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-2xl border border-slate-200 animate-modal-scale">
                   <h3 className="text-sm font-extrabold text-slate-800">Delete Company</h3>
                   <p className="mt-2 text-xs text-slate-500">
                     Delete <span className="font-bold text-slate-700">{deleteTargetCompany.name}</span>? This cannot be undone.
@@ -1465,8 +1470,8 @@ export const PlacementOfficerDashboard: React.FC = () => {
             </div>
 
             {/* Students matched list table */}
-            <div className="overflow-x-auto">
-              <table className="w-full text-left border-collapse text-xs">
+            <div className="overflow-x-auto animate-table-fade">
+              <table className="w-full text-left border-collapse text-xs table-row-hover">
                 <thead>
                   <tr className="bg-slate-50 text-slate-500 border-b border-slate-200 uppercase tracking-wider">
                     <th className="px-6 py-2.5 font-semibold">Student Name</th>
@@ -1702,8 +1707,8 @@ export const PlacementOfficerDashboard: React.FC = () => {
                   <span>Master Placement File Preview: {uploadedFilename}</span>
                   <span className="text-[10px] text-slate-400 font-medium">Verify structural maps before database submission</span>
                 </div>
-                <div className="overflow-x-auto">
-                  <table className="w-full text-left text-xs border-collapse min-w-[1200px]">
+                <div className="overflow-x-auto animate-table-fade">
+                  <table className="w-full text-left text-xs border-collapse min-w-[1200px] table-row-hover">
                     <thead>
                       <tr className="bg-slate-50/50 text-slate-500 border-b border-slate-200 uppercase text-[10px]">
                         <th className="px-4 py-2 font-semibold">Register No</th>
@@ -1850,7 +1855,7 @@ export const PlacementOfficerDashboard: React.FC = () => {
               </div>
 
               {/* Collection stats summary grid */}
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-xs">
+              <div className="grid grid-cols-2 md:grid-cols-5 gap-4 text-xs">
                 <div className="bg-white p-3 rounded-xl border border-slate-200 shadow-xs">
                   <span className="text-slate-400 block font-bold uppercase tracking-wider text-[9px]">Students Pool</span>
                   <p className="font-extrabold text-slate-800 mt-1">Inserted: <span className="text-emerald-600">{importReport.studentsInserted}</span></p>
@@ -1870,6 +1875,18 @@ export const PlacementOfficerDashboard: React.FC = () => {
                   <span className="text-slate-400 block font-bold uppercase tracking-wider text-[9px]">HR Contacts Directory</span>
                   <p className="font-extrabold text-slate-800 mt-1">Inserted: <span className="text-emerald-600">{importReport.hrInserted}</span></p>
                   <p className="font-extrabold text-slate-800">Updated: <span className="text-blue-600">{importReport.hrUpdated}</span></p>
+                </div>
+                <div className="bg-white p-3 rounded-xl border border-slate-200 shadow-xs col-span-2 md:col-span-1">
+                  <span className="text-slate-400 block font-bold uppercase tracking-wider text-[9px]">New Departments Created: {importReport.departmentsCreated || 0}</span>
+                  {importReport.newDepartments && importReport.newDepartments.length > 0 ? (
+                    <div className="mt-1 space-y-0.5 max-h-12 overflow-y-auto text-slate-800 font-bold">
+                      {importReport.newDepartments.map((dept, idx) => (
+                        <div key={idx} className="truncate">{dept}</div>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="text-slate-400 mt-1 font-semibold">None</p>
+                  )}
                 </div>
               </div>
 
@@ -1919,8 +1936,8 @@ export const PlacementOfficerDashboard: React.FC = () => {
           {/* Import History Table */}
           <div className="space-y-3 mt-6 border-t border-slate-100 pt-6">
             <h4 className="font-extrabold text-xs text-slate-750 uppercase tracking-wider">Spreadsheet Import History Logs</h4>
-            <div className="border border-slate-200 rounded-xl overflow-hidden bg-white shadow-sm">
-              <table className="w-full text-left text-xs border-collapse">
+            <div className="border border-slate-200 rounded-xl overflow-hidden bg-white shadow-sm animate-table-fade">
+              <table className="w-full text-left text-xs border-collapse table-row-hover">
                 <thead>
                   <tr className="bg-slate-50 text-slate-500 border-b border-slate-200 uppercase text-[10px]">
                     <th className="px-5 py-3 font-semibold">Filename</th>

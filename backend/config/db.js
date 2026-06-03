@@ -2,6 +2,7 @@ const mongoose = require('mongoose');
 const HRContact = require('../models/HRContact');
 const TrainingDetail = require('../models/TrainingDetail');
 const User = require('../models/User');
+const Department = require('../models/Department');
 
 const connectDB = async () => {
   try {
@@ -96,6 +97,27 @@ const connectDB = async () => {
       }
     } catch (err) {
       console.error('Error seeding HR contacts:', err.message);
+    }
+
+    // Seed initial departments if none exist
+    try {
+      const deptCount = await Department.countDocuments();
+      if (deptCount === 0) {
+        console.log('Seeding initial departments...');
+        const defaultDepts = ['CSE', 'IT', 'ADS', 'ECE', 'EEE', 'MECH', 'MECHATRONICS', 'CIVIL', 'FT'];
+        await Department.create(
+          defaultDepts.map(dept => ({
+            department_code: dept,
+            department_name: dept,
+            active: true,
+            is_active: true,
+            created_from: 'seed'
+          }))
+        );
+        console.log('Departments seeded successfully!');
+      }
+    } catch (err) {
+      console.error('Error seeding departments:', err.message);
     }
 
     // Seed initial training details if none exist

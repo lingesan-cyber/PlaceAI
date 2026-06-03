@@ -277,7 +277,7 @@ export const useStudentFilterQuery = (
           skills: skillsVal,
           regNo: p.reg_no || '',
           company: p.company as string | undefined,
-          status: p.placement_status || 'Applied'
+          status: p.placement_status || 'Not Placed'
         };
       }).filter((s: {
         id: string;

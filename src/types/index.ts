@@ -28,7 +28,7 @@ export interface Student {
   batchYear: string; // Batch Year
   company?: string; // Company
   package?: string; // Package
-  status: 'Placed' | 'Pending' | 'Rejected' | 'Applied'; // Placement Status
+  status: 'Placed' | 'Pending' | 'Rejected' | 'Applied' | 'Not Placed'; // Placement Status
   
   // Training scores fallback compatibility
   aptitude?: number;

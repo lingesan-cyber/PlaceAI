@@ -17,7 +17,6 @@ import {
   User, 
   ChevronLeft, 
   ChevronRight, 
-  RefreshCw,
   CheckCircle,
   AlertCircle,
   Code,
@@ -126,7 +125,7 @@ export const TrainingStaffDashboard: React.FC = () => {
   });
 
   const departments = useMemo(() => {
-    return metadata?.departments || ['CSE', 'IT', 'ECE', 'ME', 'CE'];
+    return metadata?.departments || [];
   }, [metadata]);
 
   useEffect(() => {
@@ -580,15 +579,26 @@ export const TrainingStaffDashboard: React.FC = () => {
 
   if (loadingStudents || loadingAnalysis) {
     return (
-      <div className="flex flex-col items-center justify-center h-[500px] gap-3">
-        <RefreshCw className="h-10 w-10 text-indigo-600 animate-spin" />
-        <span className="text-slate-500 font-medium">Loading Training Workspace...</span>
+      <div className="space-y-6 animate-pulse p-6">
+        <div className="flex flex-col md:flex-row justify-between gap-4">
+          <div className="space-y-2">
+            <div className="h-8 w-64 bg-slate-200 rounded-lg"></div>
+            <div className="h-4 w-full max-w-2xl bg-slate-200 rounded-md"></div>
+          </div>
+          <div className="h-10 w-36 bg-slate-200 rounded-xl"></div>
+        </div>
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          <div className="h-[280px] bg-slate-200 rounded-2xl"></div>
+          <div className="h-[280px] bg-slate-200 rounded-2xl"></div>
+          <div className="h-[280px] bg-slate-200 rounded-2xl"></div>
+        </div>
+        <div className="h-[400px] bg-slate-200 rounded-2xl"></div>
       </div>
     );
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 animate-fade-in-up">
       {/* Dashboard Top Header */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
@@ -975,8 +985,8 @@ export const TrainingStaffDashboard: React.FC = () => {
               </div>
             </div>
 
-            <div className="overflow-x-auto">
-              <table className="w-full text-left border-collapse text-xs">
+            <div className="overflow-x-auto animate-table-fade">
+              <table className="w-full text-left border-collapse text-xs table-row-hover">
                 <thead>
                   <tr className="bg-slate-50 text-slate-400 uppercase tracking-widest text-[9px] border-b border-slate-100 font-black">
                     <th className="px-6 py-4">Student</th>
@@ -1480,8 +1490,8 @@ export const TrainingStaffDashboard: React.FC = () => {
                   </button>
                 </div>
 
-                <div className="overflow-x-auto border border-slate-100 rounded-xl">
-                  <table className="w-full text-left border-collapse text-xs">
+                <div className="overflow-x-auto border border-slate-100 rounded-xl animate-table-fade">
+                  <table className="w-full text-left border-collapse text-xs table-row-hover">
                     <thead>
                       <tr className="bg-slate-50 text-slate-400 uppercase tracking-widest text-[9px] border-b border-slate-100 font-black">
                         <th className="px-4 py-3">Student Name</th>
@@ -1542,8 +1552,8 @@ export const TrainingStaffDashboard: React.FC = () => {
 
       {/* dialog / forms modal for CRUD */}
       {showAddForm && (
-        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl border border-slate-200 shadow-2xl max-w-lg w-full overflow-hidden animate-in fade-in zoom-in-95 duration-200">
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-overlay-fade">
+          <div className="bg-white rounded-2xl border border-slate-200 shadow-2xl max-w-lg w-full overflow-hidden animate-modal-scale">
             <div className="px-6 py-4 bg-slate-50 border-b border-slate-100 flex items-center justify-between">
               <h3 className="font-extrabold text-slate-800 text-base">
                 {editingStudent ? 'Edit Evaluator Record' : 'Add Roster Evaluation'}
@@ -1696,8 +1706,8 @@ export const TrainingStaffDashboard: React.FC = () => {
 
       {/* Delete confirmation modal */}
       {showDeleteConfirm && (
-        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl border border-slate-200 shadow-2xl max-w-sm w-full p-6 text-center animate-in fade-in zoom-in-95 duration-200">
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-overlay-fade">
+          <div className="bg-white rounded-2xl border border-slate-200 shadow-2xl max-w-sm w-full p-6 text-center animate-modal-scale">
             <AlertTriangle className="h-12 w-12 text-rose-500 mx-auto mb-3 animate-bounce" />
             <h3 className="font-extrabold text-slate-800 text-lg">Remove Evaluator Record?</h3>
             <p className="text-xs text-slate-400 mt-1 mb-6 font-semibold">

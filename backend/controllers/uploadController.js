@@ -6,6 +6,11 @@ const Placement = require('../models/Placement');
 const HRContact = require('../models/HRContact');
 const Department = require('../models/Department');
 
+const escapeRegex = (string) => {
+  return string.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&');
+};
+
+
 /**
  * Common master distribution engine for parsed arrays
  * @param {Array} records - Array of raw parsed records
@@ -23,7 +28,9 @@ const processBulkMasterUpload = async (records, policy = 'skip') => {
     hrInserted: 0,
     hrUpdated: 0,
     invalidRecords: 0,
-    duplicateRecords: 0
+    duplicateRecords: 0,
+    newDepartmentsCreated: 0,
+    newDepartments: []
   };
 
   // Pre-fetch current max placements serial number (sno) to increment sequentially
@@ -37,6 +44,8 @@ const processBulkMasterUpload = async (records, policy = 'skip') => {
     console.error('Error fetching max placement serial number:', err.message);
   }
 
+  const createdDepts = new Set();
+
   // Iterate over each record in bulk
   for (const row of records) {
     // 1. Normalize core student fields
@@ -49,16 +58,34 @@ const processBulkMasterUpload = async (records, policy = 'skip') => {
     const arrears = row.arrears !== undefined ? Number(row.arrears) : NaN;
 
     // Dynamically seed/create the department if it doesn't exist in our dynamic collections
+    let resolvedDepartment = department;
     if (department) {
       try {
-        const deptExists = await Department.findOne({ department_code: department });
-        if (!deptExists) {
-          await Department.create({
-            department_code: department,
-            department_name: department,
-            active: true
+        const codeUpper = department.trim().toUpperCase();
+        if (createdDepts.has(codeUpper)) {
+          resolvedDepartment = codeUpper;
+        } else {
+          let deptExists = await Department.findOne({
+            $or: [
+              { department_code: codeUpper },
+              { department_name: new RegExp('^' + escapeRegex(codeUpper) + '$', 'i') }
+            ]
           });
-          console.log(`[Auto-Department] Created new department: ${department}`);
+
+          if (!deptExists) {
+            deptExists = await Department.create({
+              department_code: codeUpper,
+              department_name: codeUpper,
+              active: true,
+              is_active: true,
+              created_from: 'importer'
+            });
+            stats.newDepartmentsCreated++;
+            stats.newDepartments.push(codeUpper);
+            console.log(`[Auto-Department] Created new department: ${codeUpper}`);
+          }
+          createdDepts.add(codeUpper);
+          resolvedDepartment = deptExists.department_code || codeUpper;
         }
       } catch (deptErr) {
         console.error(`Failed to auto-create department: ${department}`, deptErr.message);
@@ -76,7 +103,7 @@ const processBulkMasterUpload = async (records, policy = 'skip') => {
     }
 
     // Core validation checks (Required student records)
-    if (!reg_no || !student_name || !department || isNaN(batch_year) || batch_year < 2000) {
+    if (!reg_no || !student_name || !resolvedDepartment || isNaN(batch_year) || batch_year < 2000) {
       stats.invalidRecords++;
       continue;
     }
@@ -121,13 +148,13 @@ const processBulkMasterUpload = async (records, policy = 'skip') => {
       const studentPayload = {
         reg_no,
         name: student_name,
-        department,
+        department: resolvedDepartment,
         section,
         batch_year,
         cgpa,
         arrears,
         skills: skillsArray,
-        placement_status: placement_status || 'Applied'
+        placement_status: placement_status || 'Not Placed'
       };
 
       if (existingStudent) {
@@ -187,7 +214,7 @@ const processBulkMasterUpload = async (records, policy = 'skip') => {
           if (policy === 'overwrite') {
             await Placement.findByIdAndUpdate(existingPlacement._id, {
               name: student_name,
-              department,
+              department: resolvedDepartment,
               year: batch_year,
               batch_year,
               package: !isNaN(packageVal) ? packageVal : 0,
@@ -207,7 +234,7 @@ const processBulkMasterUpload = async (records, policy = 'skip') => {
             company: company_name,
             year: batch_year,
             batch_year,
-            department,
+            department: resolvedDepartment,
             package: !isNaN(packageVal) ? packageVal : 0,
             placement_status
           });

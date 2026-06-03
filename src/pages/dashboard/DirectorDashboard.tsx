@@ -115,7 +115,7 @@ export const DirectorDashboard: React.FC = () => {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 animate-fade-in-up">
       {/* Page Header */}
       <div>
         <h1 className="text-2xl font-black text-slate-800 tracking-tight">Director's Strategic Workspace</h1>
@@ -125,7 +125,7 @@ export const DirectorDashboard: React.FC = () => {
       {/* B) Package Analytics Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-5">
         {/* Highest Package */}
-        <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm flex items-center justify-between hover:shadow-md transition-shadow">
+        <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm flex items-center justify-between kpi-card">
           <div>
             <p className="text-xs font-bold text-slate-400 uppercase tracking-wider">Highest Package</p>
             <h3 className="text-2xl font-black text-slate-800 mt-2">{statsData.packages.highest}</h3>
@@ -140,7 +140,7 @@ export const DirectorDashboard: React.FC = () => {
         </div>
 
         {/* Average Package */}
-        <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm flex items-center justify-between hover:shadow-md transition-shadow">
+        <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm flex items-center justify-between kpi-card">
           <div>
             <p className="text-xs font-bold text-slate-400 uppercase tracking-wider">Average Package</p>
             <h3 className="text-2xl font-black text-slate-800 mt-2">{statsData.packages.average}</h3>
@@ -155,7 +155,7 @@ export const DirectorDashboard: React.FC = () => {
         </div>
 
         {/* Median Package */}
-        <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm flex items-center justify-between hover:shadow-md transition-shadow">
+        <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm flex items-center justify-between kpi-card">
           <div>
             <p className="text-xs font-bold text-slate-400 uppercase tracking-wider">Median Package</p>
             <h3 className="text-2xl font-black text-slate-800 mt-2">{statsData.packages.median}</h3>
@@ -297,8 +297,8 @@ export const DirectorDashboard: React.FC = () => {
             <h3 className="text-base font-extrabold text-slate-800">Departmental Selection Highlights</h3>
             <p className="text-slate-400 text-xs">Comparing placement percentages and top hiring offers by department.</p>
           </div>
-          <div className="overflow-x-auto">
-            <table className="w-full text-left border-collapse text-xs">
+          <div className="overflow-x-auto animate-table-fade">
+            <table className="w-full text-left border-collapse text-xs table-row-hover">
               <thead>
                 <tr className="bg-slate-50 text-slate-500 border-b border-slate-200 uppercase tracking-wider">
                   <th className="px-6 py-3 font-bold">Department</th>
