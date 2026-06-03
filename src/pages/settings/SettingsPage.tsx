@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { AlertCircle, Building2, CheckCircle2, Database, Info, Settings2, Lock, User } from 'lucide-react';
+import { AlertCircle, Building2, CheckCircle2, Database, Info, Settings2, Lock, User, Eye, EyeOff } from 'lucide-react';
 import { fetchPortalSettings, savePortalSettings } from '../../api/settingsApi';
 import type { PortalSettings, PortalSettingsMeta, SettingsPayload } from '../../types';
 import { useAuthStore } from '../../store/useAuthStore';
@@ -107,6 +107,20 @@ export const SettingsPage: React.FC = () => {
   // Account Settings Form State
   const [accountForm, setAccountForm] = useState({ name: '', email: '', avatar: '' });
   const [savedAccount, setSavedAccount] = useState({ name: '', email: '', avatar: '' });
+  const [isSavingAccount, setIsSavingAccount] = useState(false);
+
+  // Change Password Form State
+  const [currentPassword, setCurrentPassword] = useState('');
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+
+  const [showCurrent, setShowCurrent] = useState(false);
+  const [showNew, setShowNew] = useState(false);
+  const [showConfirm, setShowConfirm] = useState(false);
+
+  const [passwordError, setPasswordError] = useState('');
+  const [passwordSuccess, setPasswordSuccess] = useState('');
+  const [isSavingPassword, setIsSavingPassword] = useState(false);
 
   // General Settings Form State
   const [generalForm, setGeneralForm] = useState({
@@ -160,39 +174,16 @@ export const SettingsPage: React.FC = () => {
       setGeneralForm(gen);
       setSavedGeneral(gen);
 
-      if (user) {
-        useAuthStore.setState({
-          user: {
-            ...user,
-            name: accountForm.name,
-            email: accountForm.email,
-            avatar: accountForm.avatar
-          }
-        });
-        const u = {
-          name: accountForm.name,
-          email: accountForm.email,
-          avatar: accountForm.avatar
-        };
-        setAccountForm(u);
-        setSavedAccount(u);
-      }
-
       setMeta(formatMeta(response.meta));
       setValidationError('');
-      setToastMessage('Settings saved successfully');
-      setToastVisible(true);
       queryClient.setQueryData(['settings'], response);
-
-      if (toastTimer.current) {
-        window.clearTimeout(toastTimer.current);
-      }
-      toastTimer.current = window.setTimeout(() => setToastVisible(false), 2500);
     },
     onError: () => {
       setValidationError('Unable to save settings right now. Please try again.');
     }
   });
+
+  const isSaving = isSavingAccount || mutation.isPending;
 
   // Hydrate DB settings + localStorage general settings
   useEffect(() => {
@@ -275,33 +266,120 @@ export const SettingsPage: React.FC = () => {
     }
 
     setValidationError('');
+    setIsSavingAccount(true);
+
+    const hasAccountChanges = JSON.stringify(accountForm) !== JSON.stringify(savedAccount);
+    const hasGeneralChanges = JSON.stringify(generalForm) !== JSON.stringify(savedGeneral);
 
     try {
-      // Save local storage settings
-      localStorage.setItem('placement_default_export_format', generalForm.defaultExportFormat);
-      localStorage.setItem('placement_records_per_page', String(generalForm.recordsPerPage));
+      if (hasAccountChanges) {
+        const { updateProfile } = useAuthStore.getState();
+        await updateProfile({
+          name: accountForm.name,
+          email: accountForm.email,
+          avatar: accountForm.avatar
+        });
+        const u = {
+          name: accountForm.name,
+          email: accountForm.email,
+          avatar: accountForm.avatar
+        };
+        setSavedAccount(u);
+      }
 
-      // Build schema settings payload for DB (keeping backend validation safe)
-      const payload: SettingsPayload = {
-        institution: {
-          ...savedSettingsRef.current.institution,
-          college_name: generalForm.portalName
-        },
-        placement_rules: savedSettingsRef.current.placement_rules,
-        importer_settings: {
-          ...savedSettingsRef.current.importer_settings,
-          default_conflict_policy: generalForm.defaultConflictPolicy
-        },
-        dashboard_preferences: {
-          ...savedSettingsRef.current.dashboard_preferences,
-          default_landing_dashboard: generalForm.defaultLandingDashboard,
-          theme_preference: generalForm.themePreference
-        }
+      if (hasGeneralChanges) {
+        // Save local storage settings
+        localStorage.setItem('placement_default_export_format', generalForm.defaultExportFormat);
+        localStorage.setItem('placement_records_per_page', String(generalForm.recordsPerPage));
+
+        // Build schema settings payload for DB (keeping backend validation safe)
+        const payload: SettingsPayload = {
+          institution: {
+            ...savedSettingsRef.current.institution,
+            college_name: generalForm.portalName
+          },
+          placement_rules: savedSettingsRef.current.placement_rules,
+          importer_settings: {
+            ...savedSettingsRef.current.importer_settings,
+            default_conflict_policy: generalForm.defaultConflictPolicy
+          },
+          dashboard_preferences: {
+            ...savedSettingsRef.current.dashboard_preferences,
+            default_landing_dashboard: generalForm.defaultLandingDashboard,
+            theme_preference: generalForm.themePreference
+          }
+        };
+
+        await mutation.mutateAsync(payload);
+      }
+
+      // Show success toast
+      setToastMessage('Changes saved successfully');
+      setToastVisible(true);
+      if (toastTimer.current) {
+        window.clearTimeout(toastTimer.current);
+      }
+      toastTimer.current = window.setTimeout(() => setToastVisible(false), 2500);
+
+    } catch (err: unknown) {
+      console.error(err);
+      const errorObj = err as {
+        response?: {
+          data?: {
+            message?: string;
+          };
+        };
+        message?: string;
       };
+      const msg = errorObj.response?.data?.message || errorObj.message || 'Unable to save changes right now. Please try again.';
+      setValidationError(msg);
+    } finally {
+      setIsSavingAccount(false);
+    }
+  };
 
-      await mutation.mutateAsync(payload);
-    } catch (e) {
-      console.error(e);
+  const isPasswordValid = 
+    currentPassword.trim().length > 0 &&
+    newPassword.length >= 8 &&
+    /[A-Z]/.test(newPassword) &&
+    /[a-z]/.test(newPassword) &&
+    /[0-9]/.test(newPassword) &&
+    newPassword === confirmPassword;
+
+  const handleUpdatePassword = async () => {
+    if (!isPasswordValid) return;
+    
+    setPasswordError('');
+    setPasswordSuccess('');
+    setIsSavingPassword(true);
+
+    try {
+      const { changePassword } = useAuthStore.getState();
+      await changePassword({
+        currentPassword,
+        newPassword,
+        confirmPassword
+      });
+
+      setPasswordSuccess('Password updated successfully');
+      // Clear fields
+      setCurrentPassword('');
+      setNewPassword('');
+      setConfirmPassword('');
+    } catch (err: unknown) {
+      console.error(err);
+      const errorObj = err as {
+        response?: {
+          data?: {
+            message?: string;
+          };
+        };
+        message?: string;
+      };
+      const msg = errorObj.response?.data?.message || errorObj.message || 'Unable to update password. Please try again.';
+      setPasswordError(msg);
+    } finally {
+      setIsSavingPassword(false);
     }
   };
 
@@ -412,7 +490,7 @@ export const SettingsPage: React.FC = () => {
         <button
           type="button"
           onClick={handleCancel}
-          disabled={!hasUnsavedChanges || mutation.isPending}
+          disabled={!hasUnsavedChanges || isSaving}
           className="rounded-xl border border-slate-300 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 transition-all hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50 cursor-pointer"
         >
           Cancel
@@ -420,18 +498,18 @@ export const SettingsPage: React.FC = () => {
         <button
           type="button"
           onClick={handleSaveChanges}
-          disabled={!hasUnsavedChanges || mutation.isPending}
+          disabled={!hasUnsavedChanges || isSaving}
           className="inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 px-4 py-2.5 text-sm font-semibold text-white shadow-md shadow-blue-200 transition-all hover:from-blue-700 hover:to-indigo-700 disabled:cursor-not-allowed disabled:opacity-50 cursor-pointer"
         >
-          {mutation.isPending ? 'Saving…' : 'Save Changes'}
+          {isSaving ? 'Saving…' : 'Save Changes'}
         </button>
       </div>
 
       {/* Main Content Area - Full width */}
       <section className="w-full space-y-6">
-        {/* TAB 1: ACCOUNT SETTINGS */}
         {activeTab === 'account' && (
-          <div className="rounded-3xl border border-slate-200 bg-white shadow-sm p-6 md:p-7">
+          <>
+            <div className="rounded-3xl border border-slate-200 bg-white shadow-sm p-6 md:p-7">
             <div className="flex items-center gap-3 mb-6">
               <div className="h-10 w-10 rounded-xl bg-blue-50 text-blue-700 flex items-center justify-center">
                 <User className="h-5 w-5" />
@@ -481,9 +559,9 @@ export const SettingsPage: React.FC = () => {
               </div>
 
               <div className="flex flex-col items-center justify-center rounded-3xl border border-dashed border-slate-200 bg-slate-50 p-6">
-                <div className="mb-4">
-                  <p className="text-xs font-bold uppercase tracking-[0.22em] text-slate-400 text-center mb-3">Profile Picture Preview</p>
-                  <div className="h-32 w-32 rounded-full border-4 border-white bg-white overflow-hidden shadow-lg flex items-center justify-center">
+                <div className="mb-4 flex flex-col items-center text-center">
+                  <p className="text-xs font-bold uppercase tracking-[0.22em] text-slate-400 text-center mb-3">Profile Preview</p>
+                  <div className="h-32 w-32 rounded-full border-4 border-white bg-white overflow-hidden shadow-lg flex items-center justify-center mb-3">
                     {accountForm.avatar ? (
                       <img
                         src={accountForm.avatar}
@@ -494,8 +572,19 @@ export const SettingsPage: React.FC = () => {
                       <User className="h-16 w-16 text-slate-300" />
                     )}
                   </div>
+                  <h3 className="text-base font-bold text-slate-800 truncate max-w-[240px]">{accountForm.name || 'Your Name'}</h3>
+                  <p className="text-xs text-slate-500 truncate max-w-[240px] mt-0.5">{accountForm.email || 'your-email@domain.edu'}</p>
+                  <span className="inline-flex items-center gap-1 mt-2.5 px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider bg-indigo-50 text-indigo-700 border border-indigo-100">
+                    {
+                      user?.role === 'overall' ? 'Global Admin' :
+                      user?.role === 'director' ? 'Director' :
+                      user?.role === 'officer' ? 'Placement Officer' :
+                      user?.role === 'training' ? 'Training Staff' :
+                      user?.role || 'User'
+                    }
+                  </span>
                 </div>
-                <div className="w-full max-w-sm">
+                <div className="w-full max-w-sm mt-2">
                   <FieldLabel label="Profile Picture URL">
                     <input
                       type="url"
@@ -509,41 +598,149 @@ export const SettingsPage: React.FC = () => {
               </div>
             </div>
 
-            {/* Security Features Placeholder */}
-            <div className="mt-8 pt-6 border-t border-slate-200">
-              <h3 className="text-base font-bold text-slate-800 mb-2">Security Features</h3>
-              <div className="rounded-2xl border border-dashed border-slate-300 bg-slate-50 p-5 flex items-start gap-4 mb-4">
-                <div className="h-10 w-10 rounded-xl bg-slate-200 flex items-center justify-center text-slate-500 flex-shrink-0">
-                  <Lock className="h-5 w-5" />
-                </div>
-                <div>
-                  <p className="text-sm font-semibold text-slate-700">Security settings will be available after authentication is implemented.</p>
-                  <p className="text-xs text-slate-400 mt-1">Features like Change Password, Session Timeout, and Two-Factor Authentication are planned for a future release.</p>
-                </div>
-              </div>
+          </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-4 opacity-50 pointer-events-none">
-                <div className="rounded-2xl border border-slate-200 bg-white p-4">
-                  <p className="text-xs font-bold text-slate-400 uppercase tracking-wider">Change Password</p>
-                  <input type="password" disabled className="w-full mt-2 rounded-xl border border-slate-200 px-3 py-2 text-xs bg-slate-50" placeholder="••••••••" />
+          <div className="rounded-3xl border border-slate-200 bg-white shadow-sm p-6 md:p-7 mt-6">
+            <div className="flex items-center gap-3 mb-6">
+              <div className="h-10 w-10 rounded-xl bg-indigo-50 text-indigo-700 flex items-center justify-center">
+                <Lock className="h-5 w-5" />
+              </div>
+              <div>
+                <h2 className="text-lg font-bold text-slate-900">Change Password</h2>
+                <p className="text-sm text-slate-500">Update your account credentials. Securely hashed using bcrypt.</p>
+              </div>
+            </div>
+
+            {passwordSuccess && (
+              <div className="mb-4 rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-medium text-emerald-700 shadow-sm flex items-center gap-2">
+                <CheckCircle2 className="h-4 w-4" />
+                {passwordSuccess}
+              </div>
+            )}
+
+            {passwordError && (
+              <div className="mb-4 rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm font-medium text-rose-700 shadow-sm flex items-center gap-2">
+                <AlertCircle className="h-4 w-4" />
+                {passwordError}
+              </div>
+            )}
+
+            <div className="space-y-5 max-w-xl">
+              {/* Current Password Field */}
+              <FieldLabel label="Current Password">
+                <div className="relative">
+                  <input
+                    type={showCurrent ? 'text' : 'password'}
+                    value={currentPassword}
+                    onChange={(e) => setCurrentPassword(e.target.value)}
+                    className="w-full rounded-2xl border border-slate-300 pl-4 pr-12 py-3 text-sm text-slate-900 outline-none transition-all focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+                    placeholder="Enter current password"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowCurrent(!showCurrent)}
+                    className="absolute right-4 top-3.5 text-slate-400 hover:text-slate-600 outline-none"
+                  >
+                    {showCurrent ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                  </button>
                 </div>
-                <div className="rounded-2xl border border-slate-200 bg-white p-4">
-                  <p className="text-xs font-bold text-slate-400 uppercase tracking-wider">Session Timeout</p>
-                  <select disabled className="w-full mt-2 rounded-xl border border-slate-200 px-3 py-2 text-xs bg-slate-50">
-                    <option>30 minutes (Default)</option>
-                  </select>
+              </FieldLabel>
+
+              {/* New Password Field */}
+              <FieldLabel label="New Password">
+                <div className="relative">
+                  <input
+                    type={showNew ? 'text' : 'password'}
+                    value={newPassword}
+                    onChange={(e) => setNewPassword(e.target.value)}
+                    className="w-full rounded-2xl border border-slate-300 pl-4 pr-12 py-3 text-sm text-slate-900 outline-none transition-all focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+                    placeholder="Enter new password"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowNew(!showNew)}
+                    className="absolute right-4 top-3.5 text-slate-400 hover:text-slate-600 outline-none"
+                  >
+                    {showNew ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                  </button>
                 </div>
-                <div className="rounded-2xl border border-slate-200 bg-white p-4">
-                  <p className="text-xs font-bold text-slate-400 uppercase tracking-wider">Two-Factor Auth</p>
-                  <div className="mt-2.5 flex items-center gap-2">
-                    <span className="h-4 w-8 rounded-full bg-slate-200 block" />
-                    <span className="text-xs text-slate-400 font-semibold">Disabled</span>
+                {/* Live Password Strength Checklist */}
+                {newPassword && (
+                  <div className="mt-2.5 p-3 rounded-2xl bg-slate-50 border border-slate-200 text-xs space-y-1.5 font-medium">
+                    <p className="font-bold text-slate-500 mb-1">New Password Requirements:</p>
+                    <div className="flex items-center gap-1.5 font-semibold">
+                      <span className={newPassword.length >= 8 ? "text-emerald-500 font-bold" : "text-slate-400 font-bold"}>
+                        {newPassword.length >= 8 ? '✓' : '✗'}
+                      </span>
+                      <span className={newPassword.length >= 8 ? "text-slate-700" : "text-slate-400"}>At least 8 characters</span>
+                    </div>
+                    <div className="flex items-center gap-1.5 font-semibold">
+                      <span className={/[A-Z]/.test(newPassword) ? "text-emerald-500 font-bold" : "text-slate-400 font-bold"}>
+                        {/[A-Z]/.test(newPassword) ? '✓' : '✗'}
+                      </span>
+                      <span className={/[A-Z]/.test(newPassword) ? "text-slate-700" : "text-slate-400"}>At least 1 uppercase letter</span>
+                    </div>
+                    <div className="flex items-center gap-1.5 font-semibold">
+                      <span className={/[a-z]/.test(newPassword) ? "text-emerald-500 font-bold" : "text-slate-400 font-bold"}>
+                        {/[a-z]/.test(newPassword) ? '✓' : '✗'}
+                      </span>
+                      <span className={/[a-z]/.test(newPassword) ? "text-slate-700" : "text-slate-400"}>At least 1 lowercase letter</span>
+                    </div>
+                    <div className="flex items-center gap-1.5 font-semibold">
+                      <span className={/[0-9]/.test(newPassword) ? "text-emerald-500 font-bold" : "text-slate-400 font-bold"}>
+                        {/[0-9]/.test(newPassword) ? '✓' : '✗'}
+                      </span>
+                      <span className={/[0-9]/.test(newPassword) ? "text-slate-700" : "text-slate-400"}>At least 1 number</span>
+                    </div>
                   </div>
+                )}
+              </FieldLabel>
+
+              {/* Confirm Password Field */}
+              <FieldLabel label="Confirm Password">
+                <div className="relative">
+                  <input
+                    type={showConfirm ? 'text' : 'password'}
+                    value={confirmPassword}
+                    onChange={(e) => setConfirmPassword(e.target.value)}
+                    className="w-full rounded-2xl border border-slate-300 pl-4 pr-12 py-3 text-sm text-slate-900 outline-none transition-all focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+                    placeholder="Confirm new password"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowConfirm(!showConfirm)}
+                    className="absolute right-4 top-3.5 text-slate-400 hover:text-slate-600 outline-none"
+                  >
+                    {showConfirm ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                  </button>
                 </div>
+                {/* Live Password Confirmation matching message */}
+                {confirmPassword && (
+                  <div className="mt-2 text-xs font-semibold">
+                    {newPassword === confirmPassword ? (
+                      <span className="text-emerald-600">✅ Passwords match</span>
+                    ) : (
+                      <span className="text-rose-600">❌ Passwords do not match</span>
+                    )}
+                  </div>
+                )}
+              </FieldLabel>
+
+              {/* Update Password Action Button */}
+              <div className="pt-2">
+                <button
+                  type="button"
+                  onClick={handleUpdatePassword}
+                  disabled={!isPasswordValid || isSavingPassword}
+                  className="inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 px-5 py-2.5 text-sm font-semibold text-white shadow-md shadow-blue-200 transition-all hover:from-blue-700 hover:to-indigo-700 disabled:cursor-not-allowed disabled:opacity-50 cursor-pointer"
+                >
+                  {isSavingPassword ? 'Updating…' : 'Update Password'}
+                </button>
               </div>
             </div>
           </div>
-        )}
+        </>
+      )}
 
         {/* TAB 2: GENERAL SETTINGS */}
         {activeTab === 'general' && (

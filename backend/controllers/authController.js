@@ -126,8 +126,149 @@ const getMe = async (req, res, next) => {
   }
 };
 
+/**
+ * @desc    Get currently logged-in user details
+ * @route   GET /api/auth/profile
+ * @access  Private
+ */
+const getUserProfile = async (req, res, next) => {
+  try {
+    res.status(200).json({
+      success: true,
+      message: 'Profile retrieved successfully',
+      data: {
+        id: req.user._id,
+        name: req.user.name,
+        email: req.user.email,
+        role: req.user.role,
+        avatar: req.user.avatar
+      }
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+/**
+ * @desc    Update currently logged-in user details
+ * @route   PUT /api/auth/profile
+ * @access  Private
+ */
+const updateUserProfile = async (req, res, next) => {
+  try {
+    const user = await User.findById(req.user._id);
+
+    if (!user) {
+      res.status(404);
+      throw new Error('User not found');
+    }
+
+    const { name, email, avatar } = req.body;
+
+    if (name) user.name = name;
+    if (avatar !== undefined) user.avatar = avatar;
+
+    if (email && email.toLowerCase() !== user.email) {
+      // Validate uniqueness of the new email
+      const emailExists = await User.findOne({ email: email.toLowerCase() });
+      if (emailExists) {
+        res.status(400);
+        throw new Error('Email address is already in use by another account');
+      }
+      user.email = email.toLowerCase();
+    }
+
+    const updatedUser = await user.save();
+
+    res.status(200).json({
+      success: true,
+      message: 'Profile updated successfully',
+      data: {
+        id: updatedUser._id,
+        name: updatedUser.name,
+        email: updatedUser.email,
+        role: updatedUser.role,
+        avatar: updatedUser.avatar
+      }
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+/**
+ * @desc    Change user password
+ * @route   PUT /api/auth/change-password
+ * @access  Private
+ */
+const changePassword = async (req, res, next) => {
+  try {
+    const { currentPassword, newPassword, confirmPassword } = req.body;
+
+    if (!currentPassword || !newPassword || !confirmPassword) {
+      res.status(400);
+      throw new Error('Please fill in all fields');
+    }
+
+    if (newPassword !== confirmPassword) {
+      res.status(400);
+      throw new Error('Passwords do not match');
+    }
+
+    if (newPassword === currentPassword) {
+      res.status(400);
+      throw new Error('New password cannot be the same as current password');
+    }
+
+    // Password strength verification
+    if (newPassword.length < 8) {
+      res.status(400);
+      throw new Error('New password must be at least 8 characters long');
+    }
+    if (!/[A-Z]/.test(newPassword)) {
+      res.status(400);
+      throw new Error('New password must contain at least one uppercase letter');
+    }
+    if (!/[a-z]/.test(newPassword)) {
+      res.status(400);
+      throw new Error('New password must contain at least one lowercase letter');
+    }
+    if (!/[0-9]/.test(newPassword)) {
+      res.status(400);
+      throw new Error('New password must contain at least one number');
+    }
+
+    const user = await User.findById(req.user._id);
+    if (!user) {
+      res.status(404);
+      throw new Error('User not found');
+    }
+
+    // Check if current password is correct
+    const isMatch = await user.matchPassword(currentPassword);
+    if (!isMatch) {
+      res.status(401);
+      throw new Error('Incorrect current password');
+    }
+
+    // Update user password - will trigger pre('save') hash hook
+    user.password = newPassword;
+    await user.save();
+
+    res.status(200).json({
+      success: true,
+      message: 'Password updated successfully'
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
 module.exports = {
   registerUser,
   loginUser,
-  getMe
+  getMe,
+  getUserProfile,
+  updateUserProfile,
+  changePassword
 };

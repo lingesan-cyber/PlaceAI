@@ -9,6 +9,8 @@ interface AuthState {
   isAuthenticated: boolean;
   login: (email: string, password: string) => Promise<void>;
   register: (name: string, email: string, password: string, role: UserRole) => Promise<void>;
+  updateProfile: (profile: { name: string; email: string; avatar: string }) => Promise<void>;
+  changePassword: (payload: Record<string, string>) => Promise<void>;
   logout: () => void;
   setRole: (role: UserRole) => void;
   // ── Single-year filter ──────────────────────────────────────────────────
@@ -61,6 +63,24 @@ export const useAuthStore = create<AuthState>()(
           token: data.token,
           isAuthenticated: true,
         });
+      },
+      updateProfile: async (profile) => {
+        const response = await apiClient.put('/auth/profile', profile);
+        const { data } = response.data;
+        set((state) => {
+          if (!state.user) return {};
+          return {
+            user: {
+              ...state.user,
+              name: data.name,
+              email: data.email,
+              avatar: data.avatar,
+            }
+          };
+        });
+      },
+      changePassword: async (payload) => {
+        await apiClient.put('/auth/change-password', payload);
       },
       logout: () => {
         set({ user: null, token: null, isAuthenticated: false });
