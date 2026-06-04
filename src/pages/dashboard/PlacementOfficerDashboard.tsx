@@ -159,6 +159,26 @@ export const PlacementOfficerDashboard: React.FC = () => {
     name: '', role: '', package: '', cgpa: '6.0', arrears: '0', dept: 'CSE', skills: '', driveDate: '', location: ''
   });
 
+  // Custom toast notification states
+  const [showToast, setShowToast] = useState(false);
+  const [toastMessage, setToastMessage] = useState('');
+
+  // ESC key modal closure listener
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        setShowAddCompany(false);
+        setEditingCompany(null);
+      }
+    };
+    if (showAddCompany) {
+      window.addEventListener('keydown', handleKeyDown);
+    }
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [showAddCompany]);
+
   useEffect(() => {
     if (departments.length > 0 && !departments.includes(companyForm.dept)) {
       setCompanyForm(prev => ({ ...prev, dept: departments[0] }));
@@ -178,6 +198,7 @@ export const PlacementOfficerDashboard: React.FC = () => {
       driveDate: comp.driveDate,
       location: 'Campus'
     });
+    setFormErrors({});
     setShowAddCompany(true);
   }, [departments]);
 
@@ -300,11 +321,17 @@ export const PlacementOfficerDashboard: React.FC = () => {
       }
 
       await Promise.all([
-        queryClient.invalidateQueries({ queryKey: ['officer', 'companies', selectedYear], exact: true }),
-        queryClient.invalidateQueries({ queryKey: ['search', 'companies'] }),
+        queryClient.invalidateQueries({ queryKey: ['officer', 'companies'] }),
+        queryClient.invalidateQueries({ queryKey: ['officer', 'drives'] }),
+        queryClient.invalidateQueries({ queryKey: ['dashboard'] }),
+        queryClient.invalidateQueries({ queryKey: ['search'] }),
       ]);
 
       await refetchCompanies();
+
+      setToastMessage(editingCompany ? '✓ Company drive updated successfully!' : '✓ Company drive registered successfully!');
+      setShowToast(true);
+      setTimeout(() => setShowToast(false), 4000);
 
       setEditingCompany(null);
       setCompanyForm({ name: '', role: '', package: '', cgpa: '6.0', arrears: '0', dept: departments[0] || 'CSE', skills: '', driveDate: '', location: '' });
@@ -324,11 +351,17 @@ export const PlacementOfficerDashboard: React.FC = () => {
     try {
       await apiClient.delete(`/companies/${deleteTargetCompany.id}`);
       await Promise.all([
-        queryClient.invalidateQueries({ queryKey: ['officer', 'companies', selectedYear], exact: true }),
-        queryClient.invalidateQueries({ queryKey: ['search', 'companies'] }),
+        queryClient.invalidateQueries({ queryKey: ['officer', 'companies'] }),
+        queryClient.invalidateQueries({ queryKey: ['officer', 'drives'] }),
+        queryClient.invalidateQueries({ queryKey: ['dashboard'] }),
+        queryClient.invalidateQueries({ queryKey: ['search'] }),
       ]);
 
       await refetchCompanies();
+
+      setToastMessage('✓ Company drive deleted successfully!');
+      setShowToast(true);
+      setTimeout(() => setShowToast(false), 4000);
 
       setDeleteTargetCompany(null);
     } catch (error) {
@@ -839,6 +872,19 @@ export const PlacementOfficerDashboard: React.FC = () => {
 
   return (
     <div className="space-y-6 animate-fade-in-up">
+      {/* Toast Notification */}
+      {showToast && (
+        <div className="fixed top-20 right-5 bg-slate-900 text-white px-5 py-3.5 rounded-xl shadow-2xl border border-slate-800 flex items-center gap-3 z-[200] animate-toast-in">
+          <p className="text-xs font-semibold">{toastMessage}</p>
+          <button 
+            onClick={() => setShowToast(false)} 
+            className="text-slate-400 hover:text-white transition-colors ml-2 text-xs"
+          >
+            ✕
+          </button>
+        </div>
+      )}
+
       {/* Title */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
@@ -868,227 +914,311 @@ export const PlacementOfficerDashboard: React.FC = () => {
       {activeTab === 'students' && <StudentManagementPanel selectedYear={selectedYear} />}
 
       {activeTab === 'companies' && (
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          
-          {/* Left Column: Table & Form */}
-          <div className="lg:col-span-2 flex flex-col gap-6 h-full">
+        <>
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
             
-            {/* A) Company Management Table */}
-            <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden flex flex-col flex-1">
-              <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between">
-                <div>
-                  <h3 className="text-sm font-extrabold text-slate-800">Recruiter List</h3>
-                  <p className="text-slate-400 text-[10px]">Add, edit, or delete registered corporate placement partners.</p>
+            {/* Left Column: Recruiter List Table */}
+            <div className="lg:col-span-2 flex flex-col gap-6 h-full">
+              
+              {/* A) Company Management Table */}
+              <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden flex flex-col flex-1">
+                <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between">
+                  <div>
+                    <h3 className="text-sm font-extrabold text-slate-800">Recruiter List</h3>
+                    <p className="text-slate-400 text-[10px]">Add, edit, or delete registered corporate placement partners.</p>
+                  </div>
+                  <button
+                    onClick={() => { 
+                      setEditingCompany(null); 
+                      setCompanyForm({ name: '', role: '', package: '', cgpa: '6.0', arrears: '0', dept: departments[0] || 'CSE', skills: '', driveDate: '', location: '' });
+                      setFormErrors({});
+                      setShowAddCompany(true); 
+                    }}
+                    className="flex items-center gap-1.5 bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold px-3 py-1.5 rounded-lg transition-colors cursor-pointer"
+                  >
+                    <Plus className="h-3.5 w-3.5" />
+                    <span>Add Company</span>
+                  </button>
                 </div>
-                <button
-                  onClick={() => { setEditingCompany(null); setShowAddCompany(!showAddCompany); }}
-                  className="flex items-center gap-1.5 bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold px-3 py-1.5 rounded-lg transition-colors cursor-pointer"
-                >
-                  <Plus className="h-3.5 w-3.5" />
-                  <span>Add Company</span>
-                </button>
-              </div>
 
-              {/* TanStack Table rendering */}
-              <div className="overflow-x-auto overflow-y-auto flex-1 animate-table-fade">
-                <table className="w-full text-left border-collapse text-xs table-row-hover">
-                  <thead>
-                    {table.getHeaderGroups().map(hg => (
-                      <tr key={hg.id} className="bg-slate-50 text-slate-500 border-b border-slate-200 uppercase tracking-wider">
-                        {hg.headers.map(h => (
-                          <th key={h.id} className="px-6 py-3 font-bold">
-                            {h.isPlaceholder ? null : flexRender(h.column.columnDef.header, h.getContext())}
-                          </th>
-                        ))}
-                      </tr>
-                    ))}
-                  </thead>
-                  <tbody className="divide-y divide-slate-100 text-slate-700">
-                    {table.getRowModel().rows.map(row => (
-                      <tr key={row.id} className="hover:bg-slate-50 transition-colors">
-                        {row.getVisibleCells().map(cell => (
-                          <td key={cell.id} className="px-6 py-3.5">
-                            {flexRender(cell.column.columnDef.cell, cell.getContext())}
-                          </td>
-                        ))}
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
+                {/* TanStack Table rendering */}
+                <div className="overflow-x-auto overflow-y-auto flex-1 animate-table-fade">
+                  <table className="w-full text-left border-collapse text-xs table-row-hover">
+                    <thead>
+                      {table.getHeaderGroups().map(hg => (
+                        <tr key={hg.id} className="bg-slate-50 text-slate-500 border-b border-slate-200 uppercase tracking-wider">
+                          {hg.headers.map(h => (
+                            <th key={h.id} className="px-6 py-3 font-bold">
+                              {h.isPlaceholder ? null : flexRender(h.column.columnDef.header, h.getContext())}
+                            </th>
+                          ))}
+                        </tr>
+                      ))}
+                    </thead>
+                    <tbody className="divide-y divide-slate-100 text-slate-700">
+                      {table.getRowModel().rows.map(row => (
+                        <tr key={row.id} className="hover:bg-slate-50 transition-colors">
+                          {row.getVisibleCells().map(cell => (
+                            <td key={cell.id} className="px-6 py-3.5">
+                              {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                            </td>
+                          ))}
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
 
-              {/* Paginate control */}
-              <div className="px-6 py-3 border-t border-slate-150 flex items-center justify-between bg-slate-50/10">
-                <span className="text-slate-400 text-[10px]">
-                  Page {table.getState().pagination.pageIndex + 1} of {table.getPageCount()}
-                </span>
-                <div className="flex items-center gap-2">
-                  <button
-                    onClick={() => table.previousPage()}
-                    disabled={!table.getCanPreviousPage()}
-                    className="px-2.5 py-1 border border-slate-200 rounded text-[10px] font-semibold bg-white disabled:opacity-50"
-                  >
-                    Prev
-                  </button>
-                  <button
-                    onClick={() => table.nextPage()}
-                    disabled={!table.getCanNextPage()}
-                    className="px-2.5 py-1 border border-slate-200 rounded text-[10px] font-semibold bg-white disabled:opacity-50"
-                  >
-                    Next
-                  </button>
+                {/* Paginate control */}
+                <div className="px-6 py-3 border-t border-slate-150 flex items-center justify-between bg-slate-50/10">
+                  <span className="text-slate-400 text-[10px]">
+                    Page {table.getState().pagination.pageIndex + 1} of {table.getPageCount()}
+                  </span>
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={() => table.previousPage()}
+                      disabled={!table.getCanPreviousPage()}
+                      className="px-2.5 py-1 border border-slate-200 rounded text-[10px] font-semibold bg-white disabled:opacity-50"
+                    >
+                      Prev
+                    </button>
+                    <button
+                      onClick={() => table.nextPage()}
+                      disabled={!table.getCanNextPage()}
+                      className="px-2.5 py-1 border border-slate-200 rounded text-[10px] font-semibold bg-white disabled:opacity-50"
+                    >
+                      Next
+                    </button>
+                  </div>
                 </div>
               </div>
             </div>
 
-            {/* B) Add / Edit Company Validation Form */}
-            {showAddCompany && (
+            {/* Right Column: Drive Records */}
+            <div className="space-y-6">
               <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm space-y-4">
-                <div className="border-b border-slate-100 pb-3">
-                  <h3 className="text-sm font-extrabold text-slate-800">
-                    {editingCompany ? 'Edit Company Registration' : 'Register Corporate Recruiter Drive'}
-                  </h3>
-                  <p className="text-slate-400 text-[10px]">Ensure compliance with batch eligibility cutoffs.</p>
+                <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+                  <div>
+                    <h3 className="text-sm font-extrabold text-slate-800">Drive Calendar</h3>
+                    <p className="text-slate-400 text-[10px]">Live recruiter drives for the selected batch year.</p>
+                  </div>
                 </div>
 
-                <form onSubmit={handleCompanySubmit} className="space-y-4">
-                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                    {/* Name */}
-                    <div>
-                      <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1">Company Name</label>
-                      <input
-                        type="text"
-                        value={companyForm.name}
-                        onChange={(e) => setCompanyForm({ ...companyForm, name: e.target.value })}
-                        placeholder="e.g. Google"
-                        className="w-full border border-slate-200 rounded-lg p-2 text-xs focus:ring-1 focus:ring-blue-500 outline-none"
-                      />
-                      {formErrors.name && <p className="text-[9px] text-rose-500 mt-1 font-semibold">{formErrors.name}</p>}
-                    </div>
-
-                    {/* Role */}
-                    <div>
-                      <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1">Role Offered</label>
-                      <input
-                        type="text"
-                        value={companyForm.role}
-                        onChange={(e) => setCompanyForm({ ...companyForm, role: e.target.value })}
-                        placeholder="e.g. SDE Analyst"
-                        className="w-full border border-slate-200 rounded-lg p-2 text-xs focus:ring-1 focus:ring-blue-500 outline-none"
-                      />
-                      {formErrors.role && <p className="text-[9px] text-rose-500 mt-1 font-semibold">{formErrors.role}</p>}
-                    </div>
-
-                    {/* Package */}
-                    <div>
-                      <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1">LPA Package</label>
-                      <input
-                        type="text"
-                        value={companyForm.package}
-                        onChange={(e) => setCompanyForm({ ...companyForm, package: e.target.value })}
-                        placeholder="e.g. 18.5"
-                        className="w-full border border-slate-200 rounded-lg p-2 text-xs focus:ring-1 focus:ring-blue-500 outline-none"
-                      />
-                      {formErrors.package && <p className="text-[9px] text-rose-500 mt-1 font-semibold">{formErrors.package}</p>}
-                    </div>
-
-                    {/* CGPA */}
-                    <div>
-                      <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1">Min CGPA</label>
-                      <input
-                        type="number"
-                        step="0.1"
-                        value={companyForm.cgpa}
-                        onChange={(e) => setCompanyForm({ ...companyForm, cgpa: e.target.value })}
-                        className="w-full border border-slate-200 rounded-lg p-2 text-xs focus:ring-1 focus:ring-blue-500 outline-none"
-                      />
-                      {formErrors.cgpa && <p className="text-[9px] text-rose-500 mt-1 font-semibold">{formErrors.cgpa}</p>}
-                    </div>
-
-                    {/* Arrears */}
-                    <div>
-                      <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1">Max Arrears</label>
-                      <input
-                        type="number"
-                        value={companyForm.arrears}
-                        onChange={(e) => setCompanyForm({ ...companyForm, arrears: e.target.value })}
-                        className="w-full border border-slate-200 rounded-lg p-2 text-xs focus:ring-1 focus:ring-blue-500 outline-none"
-                      />
-                      {formErrors.arrears && <p className="text-[9px] text-rose-500 mt-1 font-semibold">{formErrors.arrears}</p>}
-                    </div>
-
-                    {/* Dept */}
-                    <div>
-                      <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1">Target Department</label>
-                      <select
-                        value={companyForm.dept}
-                        onChange={(e) => setCompanyForm({ ...companyForm, dept: e.target.value })}
-                        className="w-full border border-slate-200 rounded-lg p-2 text-xs focus:ring-1 focus:ring-blue-500 outline-none cursor-pointer"
-                      >
-                        {departments.map((dept) => (
-                          <option key={dept} value={dept}>{dept}</option>
-                        ))}
-                      </select>
-                    </div>
-
-                    {/* Drive Date */}
-                    <div>
-                      <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1">Drive Date</label>
-                      <input
-                        type="date"
-                        value={companyForm.driveDate}
-                        onChange={(e) => setCompanyForm({ ...companyForm, driveDate: e.target.value })}
-                        className="w-full border border-slate-200 rounded-lg p-2 text-xs focus:ring-1 focus:ring-blue-500 outline-none cursor-pointer"
-                      />
-                      {formErrors.driveDate && <p className="text-[9px] text-rose-500 mt-1 font-semibold">{formErrors.driveDate}</p>}
-                    </div>
-
-                    {/* Location */}
-                    <div>
-                      <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1">Location</label>
-                      <input
-                        type="text"
-                        value={companyForm.location}
-                        onChange={(e) => setCompanyForm({ ...companyForm, location: e.target.value })}
-                        placeholder="e.g. On-Campus Hall A"
-                        className="w-full border border-slate-200 rounded-lg p-2 text-xs focus:ring-1 focus:ring-blue-500 outline-none"
-                      />
-                      {formErrors.location && <p className="text-[9px] text-rose-500 mt-1 font-semibold">{formErrors.location}</p>}
-                    </div>
-
-                    {/* Skills */}
-                    <div>
-                      <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1">Required Skills</label>
-                      <input
-                        type="text"
-                        value={companyForm.skills}
-                        onChange={(e) => setCompanyForm({ ...companyForm, skills: e.target.value })}
-                        placeholder="e.g. Java, Python"
-                        className="w-full border border-slate-200 rounded-lg p-2 text-xs focus:ring-1 focus:ring-blue-500 outline-none"
-                      />
-                      {formErrors.skills && <p className="text-[9px] text-rose-500 mt-1 font-semibold">{formErrors.skills}</p>}
-                    </div>
+                {drives.length > 0 ? (
+                  <div className="space-y-3">
+                    {drives.slice(0, 6).map((drive) => (
+                      <div key={drive.id} className="flex flex-col p-3 rounded-xl border border-slate-150 bg-slate-50/50 hover:bg-slate-50 transition-colors">
+                        <div className="flex items-center justify-between gap-3">
+                          <span className="font-bold text-slate-800 text-xs truncate">{drive.company}</span>
+                          <span className="px-2 py-0.5 rounded text-[9px] font-bold uppercase tracking-wider bg-blue-50 text-blue-600">{drive.status}</span>
+                        </div>
+                        <p className="text-[10px] text-slate-500 mt-1">Drive date: {drive.date || 'TBD'}</p>
+                        <span className="text-[9px] text-slate-400 mt-2 block font-medium">{drive.title}</span>
+                      </div>
+                    ))}
                   </div>
+                ) : (
+                  <div className="rounded-xl border border-dashed border-slate-200 bg-slate-50 p-4 text-xs text-slate-500">
+                    No drive records found for the selected batch year.
+                  </div>
+                )}
+              </div>
 
-                  {formErrors.submit && (
-                    <p className="text-[10px] font-semibold text-rose-600 bg-rose-50 border border-rose-100 rounded-lg px-3 py-2">
-                      {formErrors.submit}
-                    </p>
-                  )}
+              <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm space-y-4">
+                <div className="border-b border-slate-100 pb-3">
+                  <h3 className="text-sm font-extrabold text-slate-800">Drive Follow-Ups</h3>
+                  <p className="text-slate-400 text-[10px]">Live drive reminders derived from the selected batch's recruiter list.</p>
+                </div>
 
-                  {/* PDF Upload Field */}
+                {drives.length > 0 ? (
+                  <div className="space-y-3">
+                    {drives.slice(0, 3).map((drive, index) => (
+                      <div key={drive.id} className="flex flex-col p-3 rounded-xl border border-slate-150 bg-slate-50/50 hover:bg-slate-50 transition-colors">
+                        <div className="flex items-center justify-between">
+                          <span className="font-bold text-slate-800 text-xs">{drive.company}</span>
+                          <span className={`px-2 py-0.5 rounded text-[9px] font-bold uppercase tracking-wider ${index === 0 ? 'text-rose-600 bg-rose-50' : index === 1 ? 'text-amber-600 bg-amber-50' : 'text-blue-600 bg-blue-50'}`}>
+                            {index === 0 ? 'Next' : index === 1 ? 'Soon' : 'Scheduled'}
+                          </span>
+                        </div>
+                        <p className="text-[10px] text-slate-500 mt-1">Drive date: {drive.date || 'TBD'}</p>
+                        <span className="text-[9px] text-slate-400 mt-2 block font-medium">{drive.title}</span>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="rounded-xl border border-dashed border-slate-200 bg-slate-50 p-4 text-xs text-slate-500">
+                    No follow-up items available for the selected batch year.
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+
+          {/* Form Modal Dialog */}
+          {showAddCompany && (
+            <div 
+              className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/60 backdrop-blur-sm px-4 animate-overlay-fade"
+              onClick={() => { setShowAddCompany(false); setEditingCompany(null); }}
+            >
+              <div 
+                className="w-full max-w-[800px] rounded-3xl bg-white shadow-2xl border border-slate-200 animate-modal-scale flex flex-col max-h-[90vh] overflow-hidden"
+                onClick={(e) => e.stopPropagation()}
+              >
+                <div className="flex items-center justify-between border-b border-slate-100 px-6 py-4">
                   <div>
-                    <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1">Job Description (PDF upload)</label>
-                    <div className="border border-dashed border-slate-200 rounded-xl p-3 flex items-center justify-between bg-slate-50/50 hover:bg-slate-50 transition-colors">
-                      <span className="text-[10px] text-slate-400 font-medium">Drag or select JD PDF brochure file...</span>
-                      <span className="text-[9px] bg-slate-200 hover:bg-slate-350 px-2 py-1 rounded font-bold cursor-pointer transition-all">Upload JD</span>
+                    <h3 className="text-sm font-extrabold text-slate-800">
+                      {editingCompany ? 'Edit Company Registration' : 'Register Corporate Recruiter Drive'}
+                    </h3>
+                    <p className="text-slate-400 text-[10px]">Ensure compliance with batch eligibility cutoffs.</p>
+                  </div>
+                  <button
+                    onClick={() => { setShowAddCompany(false); setEditingCompany(null); }}
+                    className="p-1.5 hover:bg-slate-100 rounded-lg text-slate-400 hover:text-slate-700 transition-colors"
+                  >
+                    <span className="text-sm font-bold">✕</span>
+                  </button>
+                </div>
+
+                <form onSubmit={handleCompanySubmit} className="flex flex-col flex-1 overflow-hidden">
+                  <div className="p-6 overflow-y-auto space-y-4 max-h-[calc(90vh-130px)]">
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                      {/* Name */}
+                      <div>
+                        <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1">Company Name</label>
+                        <input
+                          type="text"
+                          value={companyForm.name}
+                          onChange={(e) => setCompanyForm({ ...companyForm, name: e.target.value })}
+                          placeholder="e.g. Google"
+                          className="w-full border border-slate-200 rounded-lg p-2 text-xs focus:ring-1 focus:ring-blue-500 outline-none"
+                        />
+                        {formErrors.name && <p className="text-[9px] text-rose-500 mt-1 font-semibold">{formErrors.name}</p>}
+                      </div>
+
+                      {/* Role */}
+                      <div>
+                        <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1">Role Offered</label>
+                        <input
+                          type="text"
+                          value={companyForm.role}
+                          onChange={(e) => setCompanyForm({ ...companyForm, role: e.target.value })}
+                          placeholder="e.g. SDE Analyst"
+                          className="w-full border border-slate-200 rounded-lg p-2 text-xs focus:ring-1 focus:ring-blue-500 outline-none"
+                        />
+                        {formErrors.role && <p className="text-[9px] text-rose-500 mt-1 font-semibold">{formErrors.role}</p>}
+                      </div>
+
+                      {/* Package */}
+                      <div>
+                        <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1">LPA Package</label>
+                        <input
+                          type="text"
+                          value={companyForm.package}
+                          onChange={(e) => setCompanyForm({ ...companyForm, package: e.target.value })}
+                          placeholder="e.g. 18.5"
+                          className="w-full border border-slate-200 rounded-lg p-2 text-xs focus:ring-1 focus:ring-blue-500 outline-none"
+                        />
+                        {formErrors.package && <p className="text-[9px] text-rose-500 mt-1 font-semibold">{formErrors.package}</p>}
+                      </div>
+
+                      {/* CGPA */}
+                      <div>
+                        <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1">Min CGPA</label>
+                        <input
+                          type="number"
+                          step="0.1"
+                          value={companyForm.cgpa}
+                          onChange={(e) => setCompanyForm({ ...companyForm, cgpa: e.target.value })}
+                          className="w-full border border-slate-200 rounded-lg p-2 text-xs focus:ring-1 focus:ring-blue-500 outline-none"
+                        />
+                        {formErrors.cgpa && <p className="text-[9px] text-rose-500 mt-1 font-semibold">{formErrors.cgpa}</p>}
+                      </div>
+
+                      {/* Arrears */}
+                      <div>
+                        <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1">Max Arrears</label>
+                        <input
+                          type="number"
+                          value={companyForm.arrears}
+                          onChange={(e) => setCompanyForm({ ...companyForm, arrears: e.target.value })}
+                          className="w-full border border-slate-200 rounded-lg p-2 text-xs focus:ring-1 focus:ring-blue-500 outline-none"
+                        />
+                        {formErrors.arrears && <p className="text-[9px] text-rose-500 mt-1 font-semibold">{formErrors.arrears}</p>}
+                      </div>
+
+                      {/* Dept */}
+                      <div>
+                        <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1">Target Department</label>
+                        <select
+                          value={companyForm.dept}
+                          onChange={(e) => setCompanyForm({ ...companyForm, dept: e.target.value })}
+                          className="w-full border border-slate-200 rounded-lg p-2 text-xs focus:ring-1 focus:ring-blue-500 outline-none cursor-pointer"
+                        >
+                          {departments.map((dept) => (
+                            <option key={dept} value={dept}>{dept}</option>
+                          ))}
+                        </select>
+                      </div>
+
+                      {/* Drive Date */}
+                      <div>
+                        <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1">Drive Date</label>
+                        <input
+                          type="date"
+                          value={companyForm.driveDate}
+                          onChange={(e) => setCompanyForm({ ...companyForm, driveDate: e.target.value })}
+                          className="w-full border border-slate-200 rounded-lg p-2 text-xs focus:ring-1 focus:ring-blue-500 outline-none cursor-pointer"
+                        />
+                        {formErrors.driveDate && <p className="text-[9px] text-rose-500 mt-1 font-semibold">{formErrors.driveDate}</p>}
+                      </div>
+
+                      {/* Location */}
+                      <div>
+                        <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1">Location</label>
+                        <input
+                          type="text"
+                          value={companyForm.location}
+                          onChange={(e) => setCompanyForm({ ...companyForm, location: e.target.value })}
+                          placeholder="e.g. On-Campus Hall A"
+                          className="w-full border border-slate-200 rounded-lg p-2 text-xs focus:ring-1 focus:ring-blue-500 outline-none"
+                        />
+                        {formErrors.location && <p className="text-[9px] text-rose-500 mt-1 font-semibold">{formErrors.location}</p>}
+                      </div>
+
+                      {/* Skills */}
+                      <div>
+                        <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1">Required Skills</label>
+                        <input
+                          type="text"
+                          value={companyForm.skills}
+                          onChange={(e) => setCompanyForm({ ...companyForm, skills: e.target.value })}
+                          placeholder="e.g. Java, Python"
+                          className="w-full border border-slate-200 rounded-lg p-2 text-xs focus:ring-1 focus:ring-blue-500 outline-none"
+                        />
+                        {formErrors.skills && <p className="text-[9px] text-rose-500 mt-1 font-semibold">{formErrors.skills}</p>}
+                      </div>
+                    </div>
+
+                    {formErrors.submit && (
+                      <p className="text-[10px] font-semibold text-rose-600 bg-rose-50 border border-rose-100 rounded-lg px-3 py-2">
+                        {formErrors.submit}
+                      </p>
+                    )}
+
+                    {/* PDF Upload Field */}
+                    <div>
+                      <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1">Job Description (PDF upload)</label>
+                      <div className="border border-dashed border-slate-200 rounded-xl p-3 flex items-center justify-between bg-slate-50/50 hover:bg-slate-50 transition-colors">
+                        <span className="text-[10px] text-slate-400 font-medium">Drag or select JD PDF brochure file...</span>
+                        <span className="text-[9px] bg-slate-200 hover:bg-slate-300 px-2 py-1 rounded font-bold cursor-pointer transition-all">Upload JD</span>
+                      </div>
                     </div>
                   </div>
 
-                  <div className="flex gap-2 justify-end">
+                  <div className="border-t border-slate-100 px-6 py-4 flex gap-2 justify-end bg-slate-50">
                     <button
                       type="button"
-                      onClick={() => setShowAddCompany(false)}
+                      onClick={() => { setShowAddCompany(false); setEditingCompany(null); }}
                       className="px-4 py-2 border border-slate-200 hover:bg-slate-50 rounded-lg text-xs font-bold transition-all cursor-pointer"
                     >
                       Cancel
@@ -1102,95 +1232,36 @@ export const PlacementOfficerDashboard: React.FC = () => {
                   </div>
                 </form>
               </div>
-            )}
-
-            {deleteTargetCompany && (
-              <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/50 px-4 animate-overlay-fade">
-                <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-2xl border border-slate-200 animate-modal-scale">
-                  <h3 className="text-sm font-extrabold text-slate-800">Delete Company</h3>
-                  <p className="mt-2 text-xs text-slate-500">
-                    Delete <span className="font-bold text-slate-700">{deleteTargetCompany.name}</span>? This cannot be undone.
-                  </p>
-                  <div className="mt-6 flex justify-end gap-2">
-                    <button
-                      type="button"
-                      onClick={() => setDeleteTargetCompany(null)}
-                      className="px-4 py-2 border border-slate-200 hover:bg-slate-50 rounded-lg text-xs font-bold transition-all cursor-pointer"
-                    >
-                      Cancel
-                    </button>
-                    <button
-                      type="button"
-                      onClick={confirmDeleteCompany}
-                      className="px-4 py-2 bg-rose-600 hover:bg-rose-700 text-white rounded-lg text-xs font-bold transition-all cursor-pointer shadow-md shadow-rose-500/10"
-                    >
-                      Delete
-                    </button>
-                  </div>
-                </div>
-              </div>
-            )}
-          </div>
-
-          {/* Right Column: Drive Records */}
-          <div className="space-y-6">
-            <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm space-y-4">
-              <div className="flex items-center justify-between border-b border-slate-100 pb-3">
-                <div>
-                  <h3 className="text-sm font-extrabold text-slate-800">Drive Calendar</h3>
-                  <p className="text-slate-400 text-[10px]">Live recruiter drives for the selected batch year.</p>
-                </div>
-              </div>
-
-              {drives.length > 0 ? (
-                <div className="space-y-3">
-                  {drives.slice(0, 6).map((drive) => (
-                    <div key={drive.id} className="flex flex-col p-3 rounded-xl border border-slate-150 bg-slate-50/50 hover:bg-slate-50 transition-colors">
-                      <div className="flex items-center justify-between gap-3">
-                        <span className="font-bold text-slate-800 text-xs truncate">{drive.company}</span>
-                        <span className="px-2 py-0.5 rounded text-[9px] font-bold uppercase tracking-wider bg-blue-50 text-blue-600">{drive.status}</span>
-                      </div>
-                      <p className="text-[10px] text-slate-500 mt-1">Drive date: {drive.date || 'TBD'}</p>
-                      <span className="text-[9px] text-slate-400 mt-2 block font-medium">{drive.title}</span>
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                <div className="rounded-xl border border-dashed border-slate-200 bg-slate-50 p-4 text-xs text-slate-500">
-                  No drive records found for the selected batch year.
-                </div>
-              )}
             </div>
+          )}
 
-            <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm space-y-4">
-              <div className="border-b border-slate-100 pb-3">
-                <h3 className="text-sm font-extrabold text-slate-800">Drive Follow-Ups</h3>
-                <p className="text-slate-400 text-[10px]">Live drive reminders derived from the selected batch's recruiter list.</p>
+          {deleteTargetCompany && (
+            <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/50 px-4 animate-overlay-fade" onClick={() => setDeleteTargetCompany(null)}>
+              <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-2xl border border-slate-200 animate-modal-scale" onClick={e => e.stopPropagation()}>
+                <h3 className="text-sm font-extrabold text-slate-800">Delete Company</h3>
+                <p className="mt-2 text-xs text-slate-500">
+                  Delete <span className="font-bold text-slate-700">{deleteTargetCompany.name}</span>? This cannot be undone.
+                </p>
+                <div className="mt-6 flex justify-end gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setDeleteTargetCompany(null)}
+                    className="px-4 py-2 border border-slate-200 hover:bg-slate-50 rounded-lg text-xs font-bold transition-all cursor-pointer"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="button"
+                    onClick={confirmDeleteCompany}
+                    className="px-4 py-2 bg-rose-600 hover:bg-rose-700 text-white rounded-lg text-xs font-bold transition-all cursor-pointer shadow-md shadow-rose-500/10"
+                  >
+                    Delete
+                  </button>
+                </div>
               </div>
-
-              {drives.length > 0 ? (
-                <div className="space-y-3">
-                  {drives.slice(0, 3).map((drive, index) => (
-                    <div key={drive.id} className="flex flex-col p-3 rounded-xl border border-slate-150 bg-slate-50/50 hover:bg-slate-50 transition-colors">
-                      <div className="flex items-center justify-between">
-                        <span className="font-bold text-slate-800 text-xs">{drive.company}</span>
-                        <span className={`px-2 py-0.5 rounded text-[9px] font-bold uppercase tracking-wider ${index === 0 ? 'text-rose-600 bg-rose-50' : index === 1 ? 'text-amber-600 bg-amber-50' : 'text-blue-600 bg-blue-50'}`}>
-                          {index === 0 ? 'Next' : index === 1 ? 'Soon' : 'Scheduled'}
-                        </span>
-                      </div>
-                      <p className="text-[10px] text-slate-500 mt-1">Drive date: {drive.date || 'TBD'}</p>
-                      <span className="text-[9px] text-slate-400 mt-2 block font-medium">{drive.title}</span>
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                <div className="rounded-xl border border-dashed border-slate-200 bg-slate-50 p-4 text-xs text-slate-500">
-                  No follow-up items available for the selected batch year.
-                </div>
-              )}
             </div>
-          </div>
-        </div>
+          )}
+        </>
       )}
 
       {/* C) HR Management Panel */}

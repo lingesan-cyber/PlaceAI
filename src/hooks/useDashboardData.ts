@@ -255,7 +255,13 @@ export const useDashboardData = (year: string) => {
         companySelectionsByName.set(companyName, (companySelectionsByName.get(companyName) || 0) + 1);
       });
 
-      const companies: Company[] = rawCompanies.map((company: RawCompany, index: number) => {
+      const sortedRawCompanies = [...rawCompanies].sort((a: RawCompany, b: RawCompany) => {
+        const timeA = a.createdAt ? new Date(a.createdAt as string).getTime() : 0;
+        const timeB = b.createdAt ? new Date(b.createdAt as string).getTime() : 0;
+        return timeB - timeA;
+      });
+
+      const companies: Company[] = sortedRawCompanies.map((company: RawCompany, index: number) => {
         const companyName = String(company.company_name ?? '').trim();
 
         return {

@@ -50,6 +50,8 @@ interface PlacementRecord {
 
 interface CompanyRecord {
   company_name?: string;
+  drive_date?: string | number | Date;
+  driveDate?: string | number | Date;
   [key: string]: unknown;
 }
 
@@ -68,9 +70,24 @@ export const getFilteredCompaniesForYear = (
       .filter(Boolean)
   );
 
-  return companies.filter((company: CompanyRecord) =>
-    allowedCompanyNames.has(String(company.company_name ?? '').trim())
-  );
+  return companies.filter((company: CompanyRecord) => {
+    const nameStr = String(company.company_name ?? '').trim();
+    if (allowedCompanyNames.has(nameStr)) return true;
+
+    // Also include if the company drive's date year matches the selected year
+    const driveDateVal = company.drive_date || company.driveDate;
+    if (driveDateVal) {
+      try {
+        const driveYear = new Date(driveDateVal).getFullYear();
+        if (!isNaN(driveYear) && String(driveYear) === year) {
+          return true;
+        }
+      } catch {
+        // ignore date parsing error
+      }
+    }
+    return false;
+  });
 };
 
 export const mapStatus = (status: string): 'Visiting' | 'Ongoing' | 'Completed' => {

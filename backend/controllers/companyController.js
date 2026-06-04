@@ -28,7 +28,7 @@ const buildCompanyPayload = (body) => {
  */
 const getCompanies = async (req, res, next) => {
   try {
-    const companies = await Company.find({}).sort({ drive_date: 1 });
+    const companies = await Company.find({}).sort({ createdAt: -1 });
     res.status(200).json({
       success: true,
       message: 'Companies retrieved successfully',

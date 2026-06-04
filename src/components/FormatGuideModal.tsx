@@ -185,6 +185,36 @@ function SyntaxJson({ obj }: { obj: object }) {
 export const FormatGuideModal: React.FC<FormatGuideModalProps> = ({ onClose }) => {
   const [activeTab, setActiveTab] = useState('student');
   const [copiedId, setCopiedId] = useState<string | null>(null);
+  const containerRef = React.useRef<HTMLDivElement>(null);
+  const bodyRef = React.useRef<HTMLDivElement>(null);
+
+  React.useEffect(() => {
+    if (bodyRef.current) {
+      bodyRef.current.scrollTop = 0;
+    }
+    console.log('[FormatGuideModal] Modal open state: true');
+    console.log('[FormatGuideModal] window.scrollY:', window.scrollY);
+    if (containerRef.current) {
+      console.log('[FormatGuideModal] Modal container height:', containerRef.current.offsetHeight);
+    }
+    const timer = setTimeout(() => {
+      if (containerRef.current) {
+        console.log('[FormatGuideModal] Modal container height (after paint):', containerRef.current.offsetHeight);
+      }
+    }, 50);
+
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        onClose();
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+
+    return () => {
+      clearTimeout(timer);
+      window.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [activeTab, onClose]);
 
   const current = formats.find(f => f.id === activeTab)!;
   const colors = colorMap[current.color];
@@ -199,9 +229,24 @@ export const FormatGuideModal: React.FC<FormatGuideModalProps> = ({ onClose }) =
   return (
     <div
       className="fixed inset-0 z-[300] flex items-center justify-center bg-slate-950/60 backdrop-blur-sm px-4 animate-overlay-fade"
+      style={{
+        position: 'fixed',
+        inset: 0,
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        zIndex: 300,
+      }}
       onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
     >
-      <div className="w-full max-w-2xl bg-white rounded-2xl shadow-2xl border border-slate-200 flex flex-col max-h-[90vh] overflow-hidden animate-modal-scale">
+      <div
+        ref={containerRef}
+        className="w-full max-w-2xl bg-white rounded-2xl shadow-2xl border border-slate-200 flex flex-col max-h-[90vh] overflow-hidden animate-modal-scale"
+        style={{
+          maxHeight: '90vh',
+          overflow: 'hidden',
+        }}
+      >
 
         {/* ── Header ── */}
         <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between flex-shrink-0">
@@ -270,7 +315,13 @@ export const FormatGuideModal: React.FC<FormatGuideModalProps> = ({ onClose }) =
         </div>
 
         {/* ── Body ── */}
-        <div className="flex-1 overflow-y-auto p-6 space-y-4">
+        <div
+          ref={bodyRef}
+          className="flex-1 overflow-y-auto p-6 space-y-4"
+          style={{
+            overflowY: 'auto',
+          }}
+        >
 
           {/* Collection badge + description */}
           <div className="flex items-center justify-between">

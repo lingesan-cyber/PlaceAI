@@ -31,6 +31,7 @@ interface CompanyRecord {
   package?: number | string;
   drive_date?: string;
   status?: string;
+  createdAt?: string;
   [key: string]: unknown;
 }
 
@@ -116,9 +117,13 @@ export const useCompaniesQuery = (year: string) => {
       const placements = Array.isArray(placementsPayload) ? placementsPayload : (placementsPayload?.placements || []);
       const filteredCompanies = getFilteredCompaniesForYear(companies, placements, year);
 
-      // temporary debug logs removed; use React Query DevTools if needed
+      const sortedCompanies = [...filteredCompanies].sort((a: CompanyRecord, b: CompanyRecord) => {
+        const timeA = a.createdAt ? new Date(a.createdAt).getTime() : 0;
+        const timeB = b.createdAt ? new Date(b.createdAt).getTime() : 0;
+        return timeB - timeA;
+      });
 
-      return filteredCompanies.map((c: CompanyRecord) => ({
+      return sortedCompanies.map((c: CompanyRecord) => ({
         id: c._id || '',
         name: c.company_name || '',
         role: c.role || 'Campus Drive',
@@ -225,9 +230,13 @@ export const useDrivesQuery = (year: string) => {
       const placements = Array.isArray(placementsPayload) ? placementsPayload : (placementsPayload?.placements || []);
       const filteredCompanies = getFilteredCompaniesForYear(companies, placements, year);
 
-      // temporary debug logs removed; use React Query DevTools if needed
+      const sortedCompanies = [...filteredCompanies].sort((a: CompanyRecord, b: CompanyRecord) => {
+        const timeA = a.createdAt ? new Date(a.createdAt).getTime() : 0;
+        const timeB = b.createdAt ? new Date(b.createdAt).getTime() : 0;
+        return timeB - timeA;
+      });
 
-      return filteredCompanies
+      return sortedCompanies
         .map((c: CompanyRecord, index: number) => ({
           id: c._id || String(index + 1),
           title: `${c.company_name} Off-Campus Placement Drive`,

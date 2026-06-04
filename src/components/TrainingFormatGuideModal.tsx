@@ -77,6 +77,25 @@ const FIELDS = [
 // ── Component ────────────────────────────────────────────────────────────────
 export const TrainingFormatGuideModal: React.FC<TrainingFormatGuideModalProps> = ({ onClose }) => {
   const [copied, setCopied] = useState(false);
+  const containerRef = React.useRef<HTMLDivElement>(null);
+  const bodyRef = React.useRef<HTMLDivElement>(null);
+
+  React.useEffect(() => {
+    if (bodyRef.current) {
+      bodyRef.current.scrollTop = 0;
+    }
+    console.log('[TrainingFormatGuideModal] Modal open state: true');
+    console.log('[TrainingFormatGuideModal] window.scrollY:', window.scrollY);
+    if (containerRef.current) {
+      console.log('[TrainingFormatGuideModal] Modal container height:', containerRef.current.offsetHeight);
+    }
+    const timer = setTimeout(() => {
+      if (containerRef.current) {
+        console.log('[TrainingFormatGuideModal] Modal container height (after paint):', containerRef.current.offsetHeight);
+      }
+    }, 50);
+    return () => clearTimeout(timer);
+  }, []);
 
   const handleCopy = () => {
     navigator.clipboard.writeText(JSON.stringify(EXAMPLE, null, 2)).then(() => {
@@ -88,9 +107,24 @@ export const TrainingFormatGuideModal: React.FC<TrainingFormatGuideModalProps> =
   return (
     <div
       className="fixed inset-0 z-[300] flex items-center justify-center bg-slate-950/60 backdrop-blur-sm px-4 animate-overlay-fade"
+      style={{
+        position: 'fixed',
+        inset: 0,
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        zIndex: 300,
+      }}
       onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
     >
-      <div className="w-full max-w-2xl bg-white rounded-2xl shadow-2xl border border-slate-200 flex flex-col max-h-[90vh] overflow-hidden animate-modal-scale">
+      <div
+        ref={containerRef}
+        className="w-full max-w-2xl bg-white rounded-2xl shadow-2xl border border-slate-200 flex flex-col max-h-[90vh] overflow-hidden animate-modal-scale"
+        style={{
+          maxHeight: '90vh',
+          overflow: 'hidden',
+        }}
+      >
 
         {/* ── Header ── */}
         <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between flex-shrink-0">
@@ -143,7 +177,13 @@ export const TrainingFormatGuideModal: React.FC<TrainingFormatGuideModalProps> =
         </div>
 
         {/* ── Scrollable Body ── */}
-        <div className="flex-1 overflow-y-auto p-6 space-y-5">
+        <div
+          ref={bodyRef}
+          className="flex-1 overflow-y-auto p-6 space-y-5"
+          style={{
+            overflowY: 'auto',
+          }}
+        >
 
           {/* Target collection */}
           <div className="flex items-center gap-3">
