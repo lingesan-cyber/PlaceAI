@@ -28,7 +28,7 @@ export const Sidebar: React.FC = () => {
       name: 'Overall Analytics',
       path: '/dashboard/overall',
       icon: LayoutDashboard,
-      roles: ['overall', 'director', 'officer', 'training'],
+      roles: ['director', 'officer', 'training'],
     },
     {
       name: 'Director Dashboard',
@@ -52,18 +52,28 @@ export const Sidebar: React.FC = () => {
       name: 'Settings',
       path: '/dashboard/settings',
       icon: Settings2,
-      roles: ['overall', 'director', 'officer', 'training'],
+      roles: ['director', 'officer', 'training'],
     },
     {
       name: 'Users',
       path: '/dashboard/users',
       icon: Users2,
-      roles: ['overall', 'director', 'officer', 'training'],
+      roles: ['director', 'officer', 'training'],
     },
   ];
 
-  // Show all dashboards to all authenticated users
-  const filteredNavItems = navItems;
+  const roleVisibleItems: Record<string, string[]> = {
+    director: ['Overall Analytics', 'Director Dashboard', 'Users', 'Settings'],
+    officer: ['Placement Officer', 'Settings'],
+    training: ['Training Staff', 'Settings'],
+  };
+
+  // Filter sidebar navigation items based on user role
+  const filteredNavItems = navItems.filter((item) => {
+    if (!user) return false;
+    const allowedItems = roleVisibleItems[user.role] || [];
+    return allowedItems.includes(item.name);
+  });
 
   return (
     <aside className="w-64 bg-slate-900 text-slate-100 flex flex-col h-full border-r border-slate-800 shadow-xl transition-all duration-300">
@@ -89,7 +99,7 @@ export const Sidebar: React.FC = () => {
               <div className="flex items-center gap-1 mt-1">
                 <ShieldCheck className="h-3 w-3 text-emerald-400 flex-shrink-0" />
                 <p className="text-[10px] text-slate-400 uppercase font-bold tracking-wider truncate">
-                  {user.role === 'overall' ? 'Global Admin' : `${user.role} Portal`}
+                  {user.role === 'officer' ? 'Placement Officer' : user.role === 'training' ? 'Training Staff' : 'Director'} Portal
                 </p>
               </div>
             </div>

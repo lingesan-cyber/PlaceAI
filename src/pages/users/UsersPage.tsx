@@ -3,7 +3,6 @@ import {
   Users,
   UserCheck,
   UserX,
-  ShieldCheck,
   Search,
   Plus,
   Pencil,
@@ -20,14 +19,12 @@ import type { UserRole } from '../../types';
 
 /* ── role helpers ─────────────────────────────────────────────────────────── */
 const ROLE_LABELS: Record<UserRole, string> = {
-  overall: 'Overall Admin',
   director: 'Director',
   officer: 'Placement Officer',
   training: 'Training Staff',
 };
 
 const ROLE_BADGE_CLASSES: Record<UserRole, string> = {
-  overall:  'bg-blue-50 border border-blue-200 text-blue-700',
   director: 'bg-violet-50 border border-violet-200 text-violet-700',
   officer:  'bg-emerald-50 border border-emerald-200 text-emerald-700',
   training: 'bg-amber-50 border border-amber-200 text-amber-700',
@@ -64,7 +61,6 @@ const STATUS_OPTIONS: { value: StatusFilter; label: string }[] = [
 
 const ROLE_FILTER_OPTIONS: { value: UserRole | 'all'; label: string }[] = [
   { value: 'all', label: 'All Roles' },
-  { value: 'overall', label: 'Overall Admin' },
   { value: 'director', label: 'Director' },
   { value: 'officer', label: 'Placement Officer' },
   { value: 'training', label: 'Training Staff' },
@@ -89,7 +85,6 @@ export const UsersPage: React.FC = () => {
     total: users.length,
     active: users.filter((u) => u.isActive).length,
     inactive: users.filter((u) => !u.isActive).length,
-    admins: users.filter((u) => u.role === 'overall').length,
   }), [users]);
 
   /* ── filtered list ─────────────────────────────────────────────────── */
@@ -157,11 +152,10 @@ export const UsersPage: React.FC = () => {
       </div>
 
       {/* Stats */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
         <StatCard label="Total Users"    value={stats.total}    icon={Users}       iconBg="bg-blue-50"    iconColor="text-blue-600" />
         <StatCard label="Active Users"   value={stats.active}   icon={UserCheck}   iconBg="bg-emerald-50" iconColor="text-emerald-600" />
         <StatCard label="Inactive Users" value={stats.inactive} icon={UserX}       iconBg="bg-rose-50"    iconColor="text-rose-600" />
-        <StatCard label="Administrators" value={stats.admins}   icon={ShieldCheck} iconBg="bg-violet-50"  iconColor="text-violet-600" />
       </div>
 
       {/* Filters */}

@@ -3,23 +3,38 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
 import { z } from 'zod';
 import { useAuthStore } from '../store/useAuthStore';
-import { Mail, Lock, AlertCircle } from 'lucide-react';
+import { Mail, Lock, AlertCircle, User, ChevronDown } from 'lucide-react';
+import type { UserRole } from '../types';
 
 // Define Zod validation schema for login
 const loginSchema = z.object({
   email: z.string().min(1, "Email is required").email("Please enter a valid email address"),
   password: z.string().min(6, "Password must be at least 6 characters"),
+  role: z.string().min(1, "Role is required"),
 });
 
 type LoginFields = z.infer<typeof loginSchema>;
 
 export const LoginPage: React.FC = () => {
-  const { login, logout, isAuthenticated, token } = useAuthStore();
+  const { login, logout, isAuthenticated, token, user } = useAuthStore();
   const navigate = useNavigate();
   const location = useLocation();
 
   const state = location.state as { from?: { pathname?: string } } | null;
   const from = state?.from?.pathname || "/dashboard/overall";
+
+  const getRedirectPath = (role: string) => {
+    switch (role) {
+      case 'director':
+        return '/dashboard/director';
+      case 'officer':
+        return '/dashboard/officer';
+      case 'training':
+        return '/dashboard/training';
+      default:
+        return '/login';
+    }
+  };
 
   React.useEffect(() => {
     if (isAuthenticated && !token) {
@@ -28,10 +43,25 @@ export const LoginPage: React.FC = () => {
   }, [isAuthenticated, token, logout]);
 
   React.useEffect(() => {
-    if (isAuthenticated && token) {
-      navigate(from, { replace: true });
+    if (isAuthenticated && token && user) {
+      const defaultPath = getRedirectPath(user.role);
+      const isAllowed = (path: string, role: string) => {
+        const rolePermissions: Record<string, string[]> = {
+          '/dashboard/overall': ['director'],
+          '/dashboard/director': ['director'],
+          '/dashboard/officer': ['officer'],
+          '/dashboard/training': ['training'],
+          '/dashboard/users': ['director'],
+          '/dashboard/settings': ['director', 'officer', 'training'],
+        };
+        const allowed = rolePermissions[path];
+        return !allowed || allowed.includes(role);
+      };
+
+      const targetPath = from && from !== '/dashboard/overall' && isAllowed(from, user.role) ? from : defaultPath;
+      navigate(targetPath, { replace: true });
     }
-  }, [isAuthenticated, token, navigate, from]);
+  }, [isAuthenticated, token, user, navigate, from]);
 
   // React Hook Form initialization
   const { 
@@ -43,6 +73,7 @@ export const LoginPage: React.FC = () => {
     defaultValues: {
       email: '',
       password: '',
+      role: '',
     }
   });
 
@@ -61,8 +92,8 @@ export const LoginPage: React.FC = () => {
     setErrorMsg(null);
     setLoading(true);
     try {
-      await login(data.email.toLowerCase().trim(), data.password);
-      navigate(from, { replace: true });
+      await login(data.email.toLowerCase().trim(), data.password, data.role as UserRole);
+      // navigation is handled by the useEffect above reacting to changes in auth state
     } catch (err: unknown) {
       console.error(err);
       const errorObj = err as {
@@ -73,7 +104,7 @@ export const LoginPage: React.FC = () => {
         };
         message?: string;
       };
-      const msg = errorObj.response?.data?.message || errorObj.message || 'Invalid email or password';
+      const msg = errorObj.response?.data?.message || errorObj.message || 'Invalid email, password, or role mismatch';
       setErrorMsg(msg);
     } finally {
       setLoading(false);
@@ -154,6 +185,30 @@ export const LoginPage: React.FC = () => {
               <span className="text-[10px] text-rose-500 font-semibold flex items-center gap-1 mt-1">
                 <AlertCircle className="h-3.5 w-3.5" />
                 <span>{errors.password.message}</span>
+              </span>
+            )}
+          </div>
+
+          {/* Role selection dropdown */}
+          <div className="space-y-1.5">
+            <label className="text-[10px] font-bold text-slate-300 uppercase tracking-wider block">Role</label>
+            <div className="relative">
+              <User className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-500" />
+              <select
+                {...register('role')}
+                className="w-full bg-slate-900/40 border border-slate-800/80 rounded-xl pl-11 pr-10 py-3 text-xs text-white placeholder-slate-600 focus:outline-none focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500/80 hover:border-slate-700/80 transition-all duration-300 font-medium appearance-none cursor-pointer"
+              >
+                <option value="" className="bg-slate-950 text-slate-400">Select Role</option>
+                <option value="director" className="bg-slate-950 text-white">Director</option>
+                <option value="officer" className="bg-slate-950 text-white">Placement Officer</option>
+                <option value="training" className="bg-slate-950 text-white">Training Staff</option>
+              </select>
+              <ChevronDown className="absolute right-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-500 pointer-events-none" />
+            </div>
+            {errors.role && (
+              <span className="text-[10px] text-rose-500 font-semibold flex items-center gap-1 mt-1">
+                <AlertCircle className="h-3.5 w-3.5" />
+                <span>{errors.role.message}</span>
               </span>
             )}
           </div>

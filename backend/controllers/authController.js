@@ -23,7 +23,7 @@ const registerUser = async (req, res, next) => {
       throw new Error('User already exists with this email');
     }
 
-    const assignedRole = role || 'overall';
+    const assignedRole = role || 'director';
 
     // Create user — no default avatar; letter avatar is generated client-side
     const user = await User.create({
@@ -63,11 +63,17 @@ const registerUser = async (req, res, next) => {
  */
 const loginUser = async (req, res, next) => {
   try {
-    const { email, password } = req.body;
+    const { email, password, role } = req.body;
 
-    if (!email || !password) {
+    if (!email || !password || !role) {
       res.status(400);
-      throw new Error('Please enter email and password');
+      throw new Error('Please enter email, password, and select a role');
+    }
+
+    const validRoles = ['director', 'officer', 'training'];
+    if (!validRoles.includes(role)) {
+      res.status(400);
+      throw new Error('Invalid role selected');
     }
 
     // Find user
@@ -77,6 +83,12 @@ const loginUser = async (req, res, next) => {
       if (user.isActive === false) {
         return res.status(403).json({
           message: 'Account has been deactivated'
+        });
+      }
+
+      if (user.role !== role) {
+        return res.status(401).json({
+          message: 'Selected role does not match your assigned role'
         });
       }
 

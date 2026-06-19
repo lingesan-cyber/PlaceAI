@@ -4,7 +4,6 @@ import { useUpdateUser, type DbUser, type UpdateUserPayload } from '../hooks/use
 import type { UserRole } from '../types';
 
 const ROLES: { value: UserRole; label: string }[] = [
-  { value: 'overall', label: 'Overall Admin' },
   { value: 'director', label: 'Director' },
   { value: 'officer', label: 'Placement Officer' },
   { value: 'training', label: 'Training Staff' },

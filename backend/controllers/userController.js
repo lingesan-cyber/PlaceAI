@@ -1,7 +1,6 @@
 const User = require('../models/User');
 
 const roleAvatars = {
-  overall: 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=150&h=150&fit=crop&crop=face',
   director: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=150&h=150&fit=crop&crop=face',
   officer: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150&h=150&fit=crop&crop=face',
   training: 'https://images.unsplash.com/photo-1519345182560-3f2917c472ef?w=150&h=150&fit=crop&crop=face',
@@ -41,7 +40,7 @@ const createUser = async (req, res, next) => {
       throw new Error('User already exists with this email');
     }
 
-    const assignedAvatar = avatar || roleAvatars[role] || roleAvatars.overall;
+    const assignedAvatar = avatar || roleAvatars[role] || roleAvatars.director;
 
     const user = await User.create({
       name,

@@ -23,10 +23,10 @@ const userSchema = new mongoose.Schema(
       type: String,
       required: true,
       enum: {
-        values: ['overall', 'director', 'officer', 'training'],
-        message: 'Role must be overall, director, officer, or training'
+        values: ['director', 'officer', 'training'],
+        message: 'Role must be director, officer, or training'
       },
-      default: 'overall'
+      default: 'director'
     },
     avatar: {
       type: String,

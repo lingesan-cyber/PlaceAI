@@ -560,7 +560,6 @@ export const SettingsPage: React.FC = () => {
                     <input
                       type="text"
                       value={
-                        user?.role === 'overall' ? 'Global Administrator' :
                         user?.role === 'director' ? 'Director' :
                         user?.role === 'officer' ? 'Placement Officer' :
                         user?.role === 'training' ? 'Training Staff' :
@@ -658,7 +657,6 @@ export const SettingsPage: React.FC = () => {
                   <p className="text-xs text-slate-500 truncate max-w-[240px] mt-0.5 text-center">{accountForm.email || 'your-email@domain.edu'}</p>
                   <span className="inline-flex items-center gap-1 mt-2.5 px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider bg-indigo-50 text-indigo-700 border border-indigo-100">
                     {
-                      user?.role === 'overall' ? 'Global Admin' :
                       user?.role === 'director' ? 'Director' :
                       user?.role === 'officer' ? 'Placement Officer' :
                       user?.role === 'training' ? 'Training Staff' :

@@ -16,7 +16,6 @@ interface StudentProfileDetails {
 }
 
 const dashboardNames: Record<UserRole, string> = {
-  overall: 'Overall Analytics',
   director: 'Director View',
   officer: 'Placement Officer View',
   training: 'Training Staff View',
@@ -27,7 +26,6 @@ export const Topbar: React.FC = () => {
     user,
     selectedYear,
     setSelectedYear,
-    setRole,
     compareYears,
     setCompareYears,
     isCompareMode,
@@ -212,18 +210,12 @@ export const Topbar: React.FC = () => {
     }));
   }, [companiesList]);
 
-  // Handle result click navigation with role updating when permitted (for non-student results)
+  // Handle result click navigation (for non-student results)
   const handleResultClick = (category: string) => {
     setIsSearchFocused(false);
     if (category === 'Companies' || category === 'HR Contacts') {
-      if (user && user.role !== 'overall' && user.role !== 'officer') {
-        setRole('officer');
-      }
       navigate('/dashboard/officer');
     } else if (category === 'Training Records') {
-      if (user && user.role !== 'overall' && user.role !== 'training') {
-        setRole('training');
-      }
       navigate('/dashboard/training');
     } else if (category === 'Placements') {
       navigate('/dashboard/overall');

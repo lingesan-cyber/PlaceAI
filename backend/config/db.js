@@ -11,17 +11,13 @@ const connectDB = async () => {
 
     // Seed initial users if none exist
     try {
+      // Clean up overall role users from database
+      await User.deleteMany({ $or: [{ role: 'overall' }, { email: 'admin@placement.edu' }] });
+
       const userCount = await User.countDocuments();
       if (userCount === 0) {
         console.log('Seeding initial demo users...');
         await User.create([
-          {
-            name: 'Global Administrator',
-            email: 'admin@placement.edu',
-            password: 'password',
-            role: 'overall',
-            avatar: 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=150&h=150&fit=crop&crop=face'
-          },
           {
             name: 'Dr. Sarah Jenkins (Director)',
             email: 'director@placement.edu',
