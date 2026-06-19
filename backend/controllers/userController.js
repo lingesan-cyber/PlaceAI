@@ -168,10 +168,59 @@ const activateUser = async (req, res, next) => {
   }
 };
 
+// @desc    Delete user
+// @route   DELETE /api/users/:id
+// @access  Private (Director only)
+const deleteUser = async (req, res, next) => {
+  try {
+    // 1. Verify caller has Director role
+    if (req.user.role !== 'director') {
+      res.status(403);
+      throw new Error('Not authorized as a director');
+    }
+
+    // 2. Find target user
+    const user = await User.findById(req.params.id);
+    if (!user) {
+      res.status(404);
+      throw new Error('User not found');
+    }
+
+    // 3. Prevent deletion of currently logged-in user
+    if (user._id.toString() === req.user._id.toString()) {
+      res.status(400);
+      throw new Error('You cannot delete your own account');
+    }
+
+    // 4. Prevent deletion of director accounts
+    if (user.role === 'director') {
+      res.status(400);
+      throw new Error('Director accounts cannot be deleted');
+    }
+
+    // 5. Prevent deletion of active users
+    if (user.isActive) {
+      res.status(400);
+      throw new Error('Active users cannot be deleted.');
+    }
+
+    // 6. Delete user
+    await User.findByIdAndDelete(req.params.id);
+
+    res.status(200).json({
+      success: true,
+      message: 'User deleted successfully'
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
 module.exports = {
   getUsers,
   createUser,
   updateUser,
   deactivateUser,
-  activateUser
+  activateUser,
+  deleteUser
 };

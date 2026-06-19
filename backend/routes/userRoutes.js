@@ -5,7 +5,8 @@ const {
   createUser,
   updateUser,
   deactivateUser,
-  activateUser
+  activateUser,
+  deleteUser
 } = require('../controllers/userController');
 const { protect } = require('../middleware/authMiddleware');
 
@@ -17,7 +18,8 @@ router.route('/')
   .post(createUser);
 
 router.route('/:id')
-  .put(updateUser);
+  .put(updateUser)
+  .delete(deleteUser);
 
 router.patch('/:id/activate', activateUser);
 router.patch('/:id/deactivate', deactivateUser);

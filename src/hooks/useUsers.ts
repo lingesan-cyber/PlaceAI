@@ -91,3 +91,15 @@ export const useDeactivateUser = () => {
     },
   });
 };
+
+export const useDeleteUser = () => {
+  const qc = useQueryClient();
+  return useMutation<void, Error, string>({
+    mutationFn: async (id) => {
+      await apiClient.delete(`/users/${id}`);
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: USERS_KEY });
+    },
+  });
+};
