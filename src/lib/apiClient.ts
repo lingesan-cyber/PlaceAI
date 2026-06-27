@@ -5,7 +5,7 @@ import axios from 'axios';
  * PlaceAI high-performance Node.js / Express backend service.
  */
 export const apiClient = axios.create({
-  baseURL: 'http://localhost:5000/api',
+  baseURL: 'https://placeai-backend-n355.onrender.com/api',
 });
 
 // Automatically inject JWT Bearer token into every request
