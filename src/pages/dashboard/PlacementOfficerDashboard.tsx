@@ -1081,7 +1081,7 @@ export const PlacementOfficerDashboard: React.FC = () => {
 
                 <form onSubmit={handleCompanySubmit} className="flex flex-col flex-1 overflow-hidden">
                   <div className="p-6 overflow-y-auto space-y-4 max-h-[calc(90vh-130px)]">
-                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                       {/* Name */}
                       <div>
                         <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1">Company Name</label>
@@ -1299,7 +1299,7 @@ export const PlacementOfficerDashboard: React.FC = () => {
 
           {/* Add HR form card */}
           {showAddHR && (
-            <form onSubmit={handleAddHR} className="bg-slate-50 p-4 rounded-xl border border-slate-200/80 grid grid-cols-1 sm:grid-cols-4 gap-4">
+            <form onSubmit={handleAddHR} className="bg-slate-50 p-4 rounded-xl border border-slate-200/80 grid grid-cols-1 md:grid-cols-4 gap-4">
               <div>
                 <label className="block text-[10px] font-bold text-slate-500 uppercase mb-1">HR Name</label>
                 <input
@@ -1691,7 +1691,7 @@ export const PlacementOfficerDashboard: React.FC = () => {
           {importedRows.length > 0 && (
             <div className="space-y-4">
               {/* Summary Stats Row */}
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4">
                 <div className="bg-slate-50 p-4 rounded-xl border border-slate-200 shadow-sm">
                   <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Total Records Found</span>
                   <h4 className="text-lg font-black text-slate-800 mt-1">{importedRows.length}</h4>

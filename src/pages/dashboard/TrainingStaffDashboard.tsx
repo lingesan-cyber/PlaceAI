@@ -1570,7 +1570,7 @@ export const TrainingStaffDashboard: React.FC = () => {
             </div>
 
             <form onSubmit={handleStudentFormSubmit} className="p-6 space-y-4">
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
                   <label className="block text-[10px] font-black uppercase text-slate-400 mb-1">Student Name</label>
                   <input 
@@ -1596,7 +1596,7 @@ export const TrainingStaffDashboard: React.FC = () => {
                 </div>
               </div>
 
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
                   <label className="block text-[10px] font-black uppercase text-slate-400 mb-1">Department</label>
                   <select
@@ -1626,7 +1626,7 @@ export const TrainingStaffDashboard: React.FC = () => {
               <div className="border-t border-slate-100 pt-4 space-y-3">
                 <h4 className="text-xs font-black text-slate-800 uppercase tracking-wider">Evaluation Grades (0-100)</h4>
                 
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div>
                     <label className="block text-[10px] font-black uppercase text-slate-400 mb-1">Aptitude Score</label>
                     <input 
@@ -1653,7 +1653,7 @@ export const TrainingStaffDashboard: React.FC = () => {
                   </div>
                 </div>
 
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div>
                     <label className="block text-[10px] font-black uppercase text-slate-400 mb-1">Communication Score</label>
                     <input 

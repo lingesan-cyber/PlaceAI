@@ -417,7 +417,7 @@ export const OverallDashboard: React.FC = () => {
       </div>
 
       {/* A) Top Stats Row — 7 metric cards */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-4">
         {/* Card 1: Total Students */}
         <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm flex flex-col justify-between kpi-card">
           <div className="flex items-center justify-between text-blue-600">

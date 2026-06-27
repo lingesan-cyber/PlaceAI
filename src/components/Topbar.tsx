@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useAuthStore } from '../store/useAuthStore';
-import { Search, Bell, ChevronDown, GitCompare, X, Check, Settings2, LogOut } from 'lucide-react';
+import { Search, Bell, ChevronDown, GitCompare, X, Check, Settings2, LogOut, Menu } from 'lucide-react';
 import type { UserRole, DbStudent, DbCompany, DbPlacement, DbHrContact, DbTrainingDetail, GlobalSearchResponse } from '../types';
 import { useYearsStore } from '../store/useYearsStore';
 import { useYearsQuery } from '../hooks/useMetadata';
@@ -21,7 +21,11 @@ const dashboardNames: Record<UserRole, string> = {
   training: 'Training Staff View',
 };
 
-export const Topbar: React.FC = () => {
+interface TopbarProps {
+  onMenuToggle: () => void;
+}
+
+export const Topbar: React.FC<TopbarProps> = ({ onMenuToggle }) => {
   const {
     user,
     selectedYear,
@@ -230,12 +234,22 @@ export const Topbar: React.FC = () => {
   };
 
   return (
-    <header className="h-16 bg-white border-b border-slate-200 px-6 flex items-center justify-between z-10 shadow-sm relative">
-      {/* Search Bar */}
-      <div ref={searchDropdownRef} className="flex-1 max-w-md relative">
-        <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-          <Search className="h-4 w-4 text-slate-400" />
-        </div>
+    <header className="h-16 bg-white border-b border-slate-200 px-3 md:px-6 flex items-center justify-between z-10 shadow-sm relative gap-2 md:gap-4">
+      
+      {/* Left: Hamburger + Search */}
+      <div className="flex items-center gap-2 flex-1">
+        <button 
+          onClick={onMenuToggle}
+          className="md:hidden p-1.5 text-slate-500 hover:bg-slate-100 rounded-lg transition-colors flex-shrink-0"
+        >
+          <Menu className="h-6 w-6" />
+        </button>
+
+        {/* Search Bar */}
+        <div ref={searchDropdownRef} className="flex-1 max-w-md relative">
+          <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+            <Search className="h-4 w-4 text-slate-400" />
+          </div>
         <input
           type="text"
           placeholder="Global search across all years..."
@@ -246,7 +260,7 @@ export const Topbar: React.FC = () => {
         />
 
         {isSearchFocused && (
-          <div className="absolute left-0 mt-2 w-[550px] bg-white border border-slate-200 rounded-xl shadow-2xl z-[100] overflow-hidden flex flex-col">
+          <div className="absolute left-0 mt-2 w-[90vw] md:w-[550px] bg-white border border-slate-200 rounded-xl shadow-2xl z-[100] overflow-hidden flex flex-col">
             {/* Search Results */}
             <div className="flex-1 overflow-y-auto divide-y divide-slate-100 p-2 max-h-[400px]">
               {isSearchLoading ? (
@@ -422,11 +436,12 @@ export const Topbar: React.FC = () => {
           </div>
         )}
       </div>
+    </div>
 
       {/* Actions */}
-      <div className="flex items-center gap-3">
+      <div className="flex items-center gap-1.5 md:gap-3 flex-shrink-0">
         {/* ── Year Selector + Compare Mode ──────────────────────────────────── */}
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-1 md:gap-2">
           <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider hidden md:inline">
             Batch:
           </span>
@@ -453,7 +468,7 @@ export const Topbar: React.FC = () => {
 
               {/* Multi-select dropdown panel */}
               {showComparePanel && (
-                <div className="absolute right-0 mt-2 w-64 bg-white border border-slate-200 rounded-xl shadow-xl z-30 overflow-hidden">
+                <div className="absolute right-0 mt-2 w-[85vw] max-w-xs md:w-64 bg-white border border-slate-200 rounded-xl shadow-xl z-30 overflow-hidden">
                   <div className="px-4 py-3 bg-gradient-to-r from-violet-600 to-indigo-600">
                     <p className="text-xs font-bold text-white">Compare Years</p>
                     <p className="text-[10px] text-violet-200 mt-0.5">Select 2 or more years to compare</p>
@@ -543,10 +558,10 @@ export const Topbar: React.FC = () => {
             <button
               onClick={() => setShowBatchManage(true)}
               title="Manage batch years"
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-xs font-semibold bg-white text-slate-600 border-slate-200 hover:bg-slate-50 hover:text-slate-800 transition-all"
+              className="flex items-center gap-1.5 px-2 md:px-3 py-1.5 rounded-lg border text-xs font-semibold bg-white text-slate-600 border-slate-200 hover:bg-slate-50 hover:text-slate-800 transition-all"
             >
-              <Settings2 className="h-3.5 w-3.5" />
-              <span className="hidden sm:inline">Manage</span>
+              <Settings2 className="h-3.5 w-3.5 md:h-3.5 md:w-3.5" />
+              <span className="hidden lg:inline">Manage</span>
             </button>
           )}
         </div>
@@ -561,7 +576,7 @@ export const Topbar: React.FC = () => {
             <span className="absolute top-1 right-1 h-2 w-2 rounded-full bg-rose-500 ring-2 ring-white" />
           </button>
           {showNotifications && (
-            <div className="absolute right-0 mt-2 w-80 bg-white border border-slate-200 rounded-xl shadow-xl z-20 py-2">
+            <div className="absolute right-[-40px] md:right-0 mt-2 w-[85vw] max-w-xs md:w-80 bg-white border border-slate-200 rounded-xl shadow-xl z-20 py-2">
               <div className="px-4 py-2 border-b border-slate-100 flex items-center justify-between">
                 <span className="font-bold text-sm text-slate-800">Notifications</span>
                 <span onClick={() => setShowNotifications(false)} className="text-xs text-blue-600 hover:underline cursor-pointer">Clear</span>

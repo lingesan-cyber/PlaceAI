@@ -14,7 +14,12 @@ import {
 } from 'lucide-react';
 import { cn } from '../lib/utils';
 
-export const Sidebar: React.FC = () => {
+interface SidebarProps {
+  isOpen: boolean;
+  onClose: () => void;
+}
+
+export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
   const { user, logout } = useAuthStore();
   const navigate = useNavigate();
 
@@ -76,8 +81,23 @@ export const Sidebar: React.FC = () => {
   });
 
   return (
-    <aside className="w-64 bg-slate-900 text-slate-100 flex flex-col h-full border-r border-slate-800 shadow-xl transition-all duration-300">
-      {/* Brand Header */}
+    <>
+      {/* Mobile Backdrop Overlay */}
+      {isOpen && (
+        <div 
+          className="fixed inset-0 bg-slate-900/60 z-40 md:hidden backdrop-blur-sm transition-opacity"
+          onClick={onClose}
+        />
+      )}
+
+      <aside 
+        className={cn(
+          "w-64 bg-slate-900 text-slate-100 flex flex-col h-full border-r border-slate-800 shadow-xl transition-transform duration-300 z-50",
+          "fixed inset-y-0 left-0 md:relative md:translate-x-0",
+          isOpen ? "translate-x-0" : "-translate-x-full"
+        )}
+      >
+        {/* Brand Header */}
       <div className="h-16 flex items-center px-6 border-b border-slate-800 gap-3 bg-slate-950/40">
         <GraduationCap className="h-8 w-8 text-violet-500" />
         <span className="font-extrabold text-lg bg-clip-text text-transparent bg-gradient-to-r from-blue-400 via-indigo-400 to-violet-400">
@@ -118,6 +138,7 @@ export const Sidebar: React.FC = () => {
             <NavLink
               key={item.path}
               to={item.path}
+              onClick={onClose}
               className={({ isActive }) =>
                 cn(
                   "flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-medium transition-all duration-200 group",
@@ -151,6 +172,7 @@ export const Sidebar: React.FC = () => {
           <span>Sign Out</span>
         </button>
       </div>
-    </aside>
+      </aside>
+    </>
   );
 };

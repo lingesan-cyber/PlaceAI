@@ -123,7 +123,7 @@ export const DirectorDashboard: React.FC = () => {
       </div>
 
       {/* B) Package Analytics Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-5">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
         {/* Highest Package */}
         <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm flex items-center justify-between kpi-card">
           <div>
